@@ -1,0 +1,23 @@
+{
+  "name": "walkman",
+  "version": "0.0.1",
+  "description": "walkman",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "babel-node src",
+    "build": "babel src -d dist",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "2dxgujun",
+  "license": "ISC",
+  "dependencies": {
+    "cron": "^1.3.0",
+    "node-fetch": "^2.1.2",
+    "sequelize": "^4.37.6",
+    "sqlite3": "^4.0.0"
+  },
+  "devDependencies": {
+    "babel-preset-env": "^1.6.1",
+    "babel-plugin-transform-object-rest-spread": "^6.26.0"
+  }
+}

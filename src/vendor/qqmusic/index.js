@@ -21,9 +21,9 @@ export function getPlaylists(uin) {
     })
 }
 
-export function getSongs(id) {
+export function getPlaylistSongs(playlistId) {
   return fetch(
-    `https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?type=1&disstid=${id}&utf8=1&format=json`,
+    `https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?type=1&disstid=${playlistId}&utf8=1&format=json`,
     {
       headers: {
         referer: 'https://y.qq.com/'
@@ -35,13 +35,40 @@ export function getSongs(id) {
       return result.cdlist[0].songlist.map(song => {
         return {
           id: song.songid,
-          media_id: song.strMediaMid,
+          mid: song.strMediaMid,
           name: song.songname,
+          album_id: song.albumid,
+          album_mid: song.albummid,
+          artists: song.singer.map(singer => {
+            return {
+              id: singer.id,
+              mid: singer.mid,
+              name: singer.name
+            }
+          }),
           size128: song.size128,
           size320: song.size320,
           sizeflac: song.sizeflac
         }
       })
+    })
+}
+
+export function getAlbumInfo(albumMid) {
+  return fetch(
+    `https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg?albummid=${albumMid}&format=json`
+  )
+    .then(res => res.json())
+    .then(result => {
+      return {
+        id: result.data.id,
+        mid: result.data.mid,
+        name: result.data.name,
+        song_cnt: result.data.total_song_num,
+        release_date: result.data.aDate,
+        language: result.data.lan,
+        genre: result.data.genre
+      }
     })
 }
 
@@ -56,7 +83,15 @@ export function getAudioStream(filename) {
       const url = `${result.sip[0]}${filename}?vkey=${
         result.key
       }&guid=${guid}&fromtag=60`
-      console.log(url)
       return fetch(url).then(res => res.body)
     })
+}
+
+export function getAlbumArtStream(albumId) {
+  const idStr = albumId.toString()
+  return fetch(
+    `https://y.gtimg.cn/music/photo/album_500/${idStr.substr(
+      idStr.length - 2
+    )}/500_albumpic_${idStr}_0.jpg`
+  ).then(res => res.body)
 }

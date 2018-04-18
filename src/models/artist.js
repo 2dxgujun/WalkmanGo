@@ -1,6 +1,6 @@
 export default function(sequelize, DataTypes) {
   return sequelize.define(
-    'Playlist',
+    'Artist',
     {
       id: {
         type: DataTypes.INTEGER,
@@ -8,20 +8,19 @@ export default function(sequelize, DataTypes) {
         autoIncrement: false,
         field: 'id'
       },
+      mid: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        field: 'mid'
+      },
       name: {
         type: DataTypes.STRING,
         allowNull: false,
         field: 'name'
-      },
-      songCount: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        field: 'song_cnt',
-        defaultValue: 0
       }
     },
     {
-      tableName: 'tb_playlist',
+      tableName: 'tb_artist',
       timestamps: true,
       underscored: true,
       charset: 'utf8'

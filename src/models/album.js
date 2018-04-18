@@ -1,6 +1,6 @@
 export default function(sequelize, DataTypes) {
   return sequelize.define(
-    'Song',
+    'Album',
     {
       id: {
         type: DataTypes.INTEGER,
@@ -18,24 +18,29 @@ export default function(sequelize, DataTypes) {
         allowNull: false,
         field: 'name'
       },
-      size128: {
-        type: DataTypes.INTEGER.UNSIGNED,
-        allowNull: true,
-        field: 'size_128'
+      songCount: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        field: 'song_cnt'
       },
-      size320: {
-        type: DataTypes.INTEGER.UNSIGNED,
+      releaseDate: {
+        type: DataTypes.STRING,
         allowNull: true,
-        field: 'size_320'
+        field: 'release_date'
       },
-      sizeflac: {
-        type: DataTypes.INTEGER.UNSIGNED,
+      language: {
+        type: DataTypes.STRING,
         allowNull: true,
-        field: 'size_flac'
+        field: 'language'
+      },
+      genre: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'genre'
       }
     },
     {
-      tableName: 'tb_song',
+      tableName: 'tb_album',
       timestamps: true,
       underscored: true,
       charset: 'utf8'

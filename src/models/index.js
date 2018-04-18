@@ -4,7 +4,7 @@ import Sequelize from 'sequelize'
 
 const sequelize = new Sequelize('main', null, null, {
   dialect: 'sqlite',
-  storage: process.env.WALKMAN_CONFIG_DBPATH
+  storage: process.env.walkman_config_dbpath
 })
 
 export default sequelize
@@ -24,13 +24,35 @@ fs
     models[model.name] = model
   })
 
-const { Playlist, Song, PlaylistSong } = models
+const { Album, Artist, Playlist, Song, PlaylistSong, ArtistSong } = models
 
 Playlist.belongsToMany(Song, {
-  through: PlaylistSong
+  through: PlaylistSong,
+  as: 'songs'
 })
 Song.belongsToMany(Playlist, {
-  through: PlaylistSong
+  through: PlaylistSong,
+  as: 'playlists'
 })
 
-export { Playlist, Song }
+Artist.belongsToMany(Song, {
+  through: ArtistSong,
+  as: 'songs'
+})
+Song.belongsToMany(Artist, {
+  through: ArtistSong,
+  as: 'artists'
+})
+
+Album.hasMany(Song, {
+  as: 'songs'
+})
+Album.belongsTo(Artist, {
+  as: 'artists'
+})
+
+sequelize.sync().catch(err => {
+  console.error('Unable to sync model structures: ', err)
+})
+
+export { Album, Artist, Playlist, Song }

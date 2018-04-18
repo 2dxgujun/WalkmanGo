@@ -4,7 +4,7 @@ import Sequelize from 'sequelize'
 
 const sequelize = new Sequelize('main', null, null, {
   dialect: 'sqlite',
-  storage: './playlist.sqlite'
+  storage: process.env.WALKMAN_CONFIG_DBPATH
 })
 
 export default sequelize
@@ -24,12 +24,13 @@ fs
     models[model.name] = model
   })
 
-for (let name in models) {
-  const model = models[name]
-  if (model.associate) {
-    models.associate(models)
-  }
-}
+const { Playlist, Song, PlaylistSong } = models
 
-const { Playlist, Song } = models
+Playlist.belongsToMany(Song, {
+  through: PlaylistSong
+})
+Song.belongsToMany(Playlist, {
+  through: PlaylistSong
+})
+
 export { Playlist, Song }

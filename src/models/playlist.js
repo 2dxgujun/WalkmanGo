@@ -1,9 +1,9 @@
 export default function(sequelize, DataTypes) {
-  const Playlist = sequelize.define(
+  return sequelize.define(
     'Playlist',
     {
       id: {
-        type: DataTypes.INTEGER.UNSIGNED,
+        type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: false,
         field: 'id'
@@ -27,5 +27,4 @@ export default function(sequelize, DataTypes) {
       charset: 'utf8'
     }
   )
-  return Playlist
 }

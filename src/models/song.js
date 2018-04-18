@@ -1,9 +1,9 @@
 export default function(sequelize, DataTypes) {
-  const Song = sequelize.define(
+  return sequelize.define(
     'Song',
     {
       id: {
-        type: DataTypes.INTEGER.UNSIGNED,
+        type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: false,
         field: 'id'
@@ -17,6 +17,11 @@ export default function(sequelize, DataTypes) {
         type: DataTypes.STRING,
         allowNull: false,
         field: 'media_id'
+      },
+      albumId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        field: 'album_id'
       },
       size128: {
         type: DataTypes.INTEGER.UNSIGNED,
@@ -41,5 +46,4 @@ export default function(sequelize, DataTypes) {
       charset: 'utf8'
     }
   )
-  return Song
 }

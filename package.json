@@ -11,7 +11,10 @@
   "author": "2dxgujun",
   "license": "ISC",
   "dependencies": {
+    "bluebird": "^3.5.1",
+    "commander": "^2.15.1",
     "cron": "^1.3.0",
+    "ini": "^1.3.5",
     "node-fetch": "^2.1.2",
     "sequelize": "^4.37.6",
     "sqlite3": "^4.0.0"

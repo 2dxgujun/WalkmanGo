@@ -27,9 +27,9 @@ function run() {
   //queue.add(FetchAndPersistSongs).catch(err => {
   //  console.error(err)
   //})
-  queue.add(DownloadSongs).catch(err => {
-    console.error(err)
-  })
+  //queue.add(DownloadSongs).catch(err => {
+  //  console.error(err)
+  //})
 }
 
 function FetchAndPersistPlaylists() {
@@ -196,16 +196,12 @@ function DownloadSongs() {
             fd: fd,
             autoClose: true
           })
-          dest.on('close', () => {
-            console.log('dest on close')
-          })
-          dest.on('finish', () => {
-            console.log('dest on finish')
-          })
           return qqmusic.getAudioStream(getFilename(song)).then(source => {
-            source.pipe(dest)
-            source.on('end', () => {
-              console.log('source on end')
+            return new Promise((resolve, reject) => {
+              source.pipe(dest)
+              source.on('error', reject)
+              dest.on('error', reject)
+              dest.on('finish', resolve)
             })
           })
         })

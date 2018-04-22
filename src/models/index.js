@@ -24,7 +24,15 @@ fs
     models[model.name] = model
   })
 
-const { Album, Artist, Playlist, Song, PlaylistSong, ArtistSong } = models
+const {
+  Album,
+  Artist,
+  Playlist,
+  Song,
+  PlaylistSong,
+  ArtistSong,
+  Local
+} = models
 
 Playlist.belongsToMany(Song, {
   through: PlaylistSong,
@@ -51,8 +59,15 @@ Album.belongsTo(Artist, {
   as: 'artists'
 })
 
+Song.belongsTo(Local, {
+  as: 'audio'
+})
+Album.belongsTo(Local, {
+  as: 'frontCover'
+})
+
 sequelize.sync().catch(err => {
   console.error('Unable to sync model structures: ', err)
 })
 
-export { Album, Artist, Playlist, Song }
+export { Album, Artist, Playlist, Song, Local }

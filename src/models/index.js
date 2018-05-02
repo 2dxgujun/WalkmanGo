@@ -62,8 +62,11 @@ Album.belongsTo(Artist, {
 Song.belongsTo(Local, {
   as: 'audio'
 })
+Song.belongsTo(Local, {
+  as: 'cover'
+})
 Album.belongsTo(Local, {
-  as: 'frontCover'
+  as: 'cover'
 })
 
 sequelize.sync().catch(err => {

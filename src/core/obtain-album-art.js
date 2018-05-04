@@ -51,7 +51,7 @@ function markArt(album, artpath, bytes) {
     return Local.create(
       {
         path: artpath,
-        mime_type: getMimeType(artpath),
+        mimeType: getMimeType(artpath),
         length: bytes
       },
       { transaction: t }
@@ -62,24 +62,32 @@ function markArt(album, artpath, bytes) {
 }
 
 function pipeArt(album, artpath) {
-  return qqmusic.getAlbumArtStream(album.id).then(source => {
-    return new Promise((resolve, reject) => {
-      const m = meter()
-      const stream = source
-        .pipe(
-          sharp()
-            .resize(500)
-            .jpeg()
-        )
-        .pipe(m)
-        .pipe(fs.createWriteStream(artpath))
-      source.on('error', reject)
-      stream.on('error', reject)
-      stream.on('finish', () => {
-        resolve(m.bytes)
+  const temppath = `${artpath}.temp`
+  return qqmusic
+    .getAlbumArtStream(album.id)
+    .then(source => {
+      return new Promise((resolve, reject) => {
+        const m = meter()
+        const stream = source
+          .pipe(
+            sharp()
+              .resize(500)
+              .jpeg()
+          )
+          .pipe(m)
+          .pipe(fs.createWriteStream(artpath))
+        source.on('error', reject)
+        stream.on('error', reject)
+        stream.on('finish', () => {
+          resolve(m.bytes)
+        })
       })
     })
-  })
+    .then(bytes => {
+      return fs.renameAsync(temppath, artpath).then(() => {
+        return bytes
+      })
+    })
 }
 
 function getAlbumArtPath(album) {

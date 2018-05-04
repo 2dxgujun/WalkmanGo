@@ -32,5 +32,5 @@ Promise.promisify(fs.readFile)(program.config || './walkman.ini', 'utf-8')
   })
 
 if (process.env.NODE_ENV === 'development') {
-  setInterval(gc, 3000)
+  //setInterval(gc, 3000)
 }

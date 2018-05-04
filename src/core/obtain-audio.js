@@ -55,7 +55,7 @@ function markAudio(song, audiopath, bytes) {
     return Local.create(
       {
         path: audiopath,
-        mime_type: getMimeType(audiopath),
+        mimeType: getMimeType(audiopath),
         length: bytes
       },
       { transaction: t }
@@ -66,27 +66,53 @@ function markAudio(song, audiopath, bytes) {
 }
 
 function pipeAudio(song, audiopath) {
-  return qqmusic.getAudioStream(getFilename(song)).then(source => {
-    return new Promise((resolve, reject) => {
-      const m = meter()
-      const stream = source.pipe(m).pipe(fs.createWriteStream(audiopath))
-      source.on('error', reject)
-      stream.on('error', reject)
-      stream.on('finish', () => {
-        resolve(m.bytes)
+  const temppath = `${audiopath}.temp`
+  return qqmusic
+    .getAudioStream(getTargetName(song))
+    .then(source => {
+      return new Promise((resolve, reject) => {
+        const m = meter()
+        const stream = source.pipe(m).pipe(fs.createWriteStream(temppath))
+        source.on('error', reject)
+        stream.on('error', reject)
+        stream.on('finish', () => {
+          resolve(m.bytes)
+        })
       })
     })
-  })
+    .then(bytes => {
+      if (getTargetSize(song) != bytes) {
+        throw new Error('Not match target audio size')
+      }
+      return fs.renameAsync(temppath, audiopath).then(() => {
+        return bytes
+      })
+    })
 }
 
 function getAudioPath(song) {
-  const extname = path.extname(getFilename(song))
+  const extname = path.extname(getTargetName(song))
   const songfile = `${song.artists[0].name}-${song.name}${extname}`
   const audiopath = path.resolve(songdir, songfile)
   return audiopath
 }
 
-function getFilename(song) {
+function getTargetSize(song) {
+  if (bitrate === 'flac' && song.sizeflac > 0) {
+    return song.sizeflac
+  } else if ((bitrate === 'flac' || bitrate === '320') && song.size320 > 0) {
+    return song.size320
+  } else if (
+    (bitrate === 'flac' || bitrate === '320' || bitrate === '128') &&
+    song.size128 > 0
+  ) {
+    return song.size128
+  } else {
+    throw new Error('Unrecognized bitrate')
+  }
+}
+
+function getTargetName(song) {
   if (bitrate === 'flac' && song.sizeflac > 0) {
     return `F000${song.mid}.flac`
   } else if ((bitrate === 'flac' || bitrate === '320') && song.size320 > 0) {

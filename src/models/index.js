@@ -56,6 +56,9 @@ Song.belongsToMany(Artist, {
 Album.hasMany(Song, {
   as: 'songs'
 })
+Song.belongsTo(Album, {
+  as: 'album'
+})
 Album.belongsTo(Artist, {
   as: 'artist'
 })

@@ -15,27 +15,30 @@ export default function() {
         as: 'artist'
       }
     ]
-  }).map(album => {
-    const artpath = getAlbumArtPath(album)
-    return fs.accessAsync(artpath).catch(() => {
-      return fs.openAsync(artpath, 'w').then(fd => {
-        return qqmusic.getAlbumArtStream(album.id).then(source => {
-          return new Promise((resolve, reject) => {
-            const stream = source
-              .pipe(
-                sharp()
-                  .resize(500)
-                  .jpeg()
-              )
-              .pipe(fs.createWriteStream(artpath, { fd }))
-            source.on('error', reject)
-            stream.on('error', reject)
-            stream.on('finish', resolve)
+  }).map(
+    album => {
+      const artpath = getAlbumArtPath(album)
+      return fs.accessAsync(artpath).catch(() => {
+        return fs.openAsync(artpath, 'w').then(fd => {
+          return qqmusic.getAlbumArtStream(album.id).then(source => {
+            return new Promise((resolve, reject) => {
+              const stream = source
+                .pipe(
+                  sharp()
+                    .resize(500)
+                    .jpeg()
+                )
+                .pipe(fs.createWriteStream(artpath, { fd }))
+              source.on('error', reject)
+              stream.on('error', reject)
+              stream.on('finish', resolve)
+            })
           })
         })
       })
-    })
-  })
+    },
+    { concurrency: 4 }
+  )
 }
 
 function getAlbumArtPath(album) {

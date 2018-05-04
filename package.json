@@ -4,7 +4,7 @@
   "description": "walkman",
   "main": "src/index.js",
   "scripts": {
-    "dev": "babel-node src",
+    "dev": "babel-node --expose-gc src",
     "build": "babel src -d dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

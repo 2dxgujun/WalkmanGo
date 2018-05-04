@@ -8,6 +8,7 @@ import path from 'path'
 
 import fetch_data from './fetch-data'
 import obtain_album_art from './obtain-album-art'
+import obtain_audio from './obtain-audio'
 
 const queue = new Queue(1 /*max concurrent*/, Infinity)
 
@@ -24,15 +25,15 @@ export function schedule() {
 }
 
 function run() {
+  queue.add(fetch_data).catch(err => {
+    console.error(err)
+  })
+  queue.add(obtain_audio).catch(err => {
+    console.error(err)
+  })
   queue.add(obtain_album_art).catch(err => {
     console.error(err)
   })
-  //queue.add(FetchAndPersistSongs).catch(err => {
-  //  console.error(err)
-  //})
-  //queue.add(DownloadSongs).catch(err => {
-  //  console.error(err)
-  //})
 }
 
 function DownloadSongs() {

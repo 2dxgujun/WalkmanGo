@@ -4,8 +4,13 @@ import sequelize, { Album, Artist, Playlist, Song } from '../models'
 import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs'
+import mkdirp from 'mkdirp'
+import meter from 'stream-meter'
 
 Promise.promisifyAll(fs)
+Promise.promisifyAll(mkdirp)
+
+const { walkman_config_artdir: artdir } = process.env
 
 export default function() {
   return Album.all({
@@ -19,26 +24,62 @@ export default function() {
     album => {
       const artpath = getAlbumArtPath(album)
       return fs.accessAsync(artpath).catch(() => {
-        return fs.openAsync(artpath, 'w').then(fd => {
-          return qqmusic.getAlbumArtStream(album.id).then(source => {
-            return new Promise((resolve, reject) => {
-              const stream = source
-                .pipe(
-                  sharp()
-                    .resize(500)
-                    .jpeg()
-                )
-                .pipe(fs.createWriteStream(artpath, { fd }))
-              source.on('error', reject)
-              stream.on('error', reject)
-              stream.on('finish', resolve)
-            })
+        return mkdirp(path.dirname(artpath))
+          .then(() => {
+            return pipeArt(album, artpath)
           })
-        })
+          .then(bytes => {
+            return markArt(album, artpath, bytes)
+          })
       })
     },
     { concurrency: 4 }
   )
+}
+
+function getMimeType(artpath) {
+  const extname = path.extname(artpath)
+  if (extname === '.jpeg') {
+    return 'image/jpeg'
+  } else {
+    throw new Error('Unrecognized file type')
+  }
+}
+
+function markArt(album, artpath, bytes) {
+  return sequelize.transaction(t => {
+    return Local.create(
+      {
+        path: artpath,
+        mime_type: getMimeType(artpath),
+        length: bytes
+      },
+      { transaction: t }
+    ).then(art => {
+      return album.setCover(art, { transaction: t })
+    })
+  })
+}
+
+function pipeArt(album, artpath) {
+  return qqmusic.getAlbumArtStream(album.id).then(source => {
+    return new Promise((resolve, reject) => {
+      const m = meter()
+      const stream = source
+        .pipe(
+          sharp()
+            .resize(500)
+            .jpeg()
+        )
+        .pipe(m)
+        .pipe(fs.createWriteStream(artpath))
+      source.on('error', reject)
+      stream.on('error', reject)
+      stream.on('finish', () => {
+        resolve(m.bytes)
+      })
+    })
+  })
 }
 
 function getAlbumArtPath(album) {

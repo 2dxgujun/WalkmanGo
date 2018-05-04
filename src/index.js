@@ -30,3 +30,7 @@ Promise.promisify(fs.readFile)(program.config || './walkman.ini', 'utf-8')
     console.log(err.message)
     process.exit(1)
   })
+
+if (process.env.NODE_ENV === 'development') {
+  setInterval(gc, 3000)
+}

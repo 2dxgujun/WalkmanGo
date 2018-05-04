@@ -7,7 +7,7 @@ import mkdirp from 'mkdirp'
 import meter from 'stream-meter'
 
 Promise.promisifyAll(fs)
-Promise.promisifyAll(mkdirp)
+const mkdirpAsync = Promise.promisifyAll(mkdirp)
 
 const {
   walkman_config_bitrate: bitrate,
@@ -26,7 +26,7 @@ export default function() {
     song => {
       const audiopath = getAudioPath(song)
       return fs.accessAsync(audiopath).catch(() => {
-        return mkdirp(path.dirname(audiopath))
+        return mkdirpAsync(path.dirname(audiopath))
           .then(() => {
             return pipeAudio(song, audiopath)
           })

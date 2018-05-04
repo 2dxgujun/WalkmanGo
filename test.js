@@ -1,39 +1,13 @@
-var flac = require('flac-bindings')
-var fs = require('fs')
+import mkdirp from 'mkdirp'
+import Bluebird from 'bluebird'
+import path from 'path'
 
-var iterator = flac.bindings.metadata1.new()
+const mkdirpAsync = Bluebird.promisify(mkdirp)
 
-console.log(flac.bindings.metadata1.status(iterator))
-
-flac.bindings.metadata1.init(
-  iterator,
-  '/Users/2dxgujun/Desktop/flac.flac',
-  false,
-  false
-)
-
-console.log(flac.bindings.metadata1.status(iterator))
-
-var blockData
-
-while (flac.bindings.metadata1.next(iterator)) {
-  var blockType =
-    flac.bindings.format.MetadataTypeString[
-      flac.bindings.metadata1.get_block_type(iterator)
-    ]
-  console.log('Block type: ' + blockType)
-  if (blockType === 'PICTURE') {
-    blockData = flac.bindings.metadata1.get_block(iterator)
-    console.log(blockData)
-    break
-  }
-}
-
-var imageData = fs.readFileSync('/Users/2dxgujun/Desktop/test.png')
-
-//console.log(imageData)
-//blockData.data.fill(imageData)
-
-//flac.bindings.metadata1.set_block(iterator, blockData, true)
-
-console.log(flac.bindings.metadata1.status(iterator))
+mkdirpAsync(path.resolve('hello/fuck/you'))
+  .then(() => {
+    console.log('ok')
+  })
+  .catch(err => {
+    console.error(err)
+  })

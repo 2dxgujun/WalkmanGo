@@ -8,7 +8,7 @@ import mkdirp from 'mkdirp'
 import meter from 'stream-meter'
 
 Promise.promisifyAll(fs)
-Promise.promisifyAll(mkdirp)
+const mkdirpAsync = Promise.promisifyAll(mkdirp)
 
 const { walkman_config_artdir: artdir } = process.env
 
@@ -24,7 +24,7 @@ export default function() {
     album => {
       const artpath = getAlbumArtPath(album)
       return fs.accessAsync(artpath).catch(() => {
-        return mkdirp(path.dirname(artpath))
+        return mkdirpAsync(path.dirname(artpath))
           .then(() => {
             return pipeArt(album, artpath)
           })

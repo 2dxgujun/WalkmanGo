@@ -4,7 +4,8 @@ import Sequelize from 'sequelize'
 
 const sequelize = new Sequelize('main', null, null, {
   dialect: 'sqlite',
-  storage: process.env.walkman_config_dbpath
+  storage: process.env.walkman_config_dbpath,
+  logging: false
 })
 
 export default sequelize

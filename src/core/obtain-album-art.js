@@ -8,7 +8,7 @@ import mkdirp from 'mkdirp'
 import meter from 'stream-meter'
 
 Promise.promisifyAll(fs)
-const mkdirpAsync = Promise.promisifyAll(mkdirp)
+const mkdirpAsync = Promise.promisify(mkdirp)
 
 const { walkman_config_artdir: artdir } = process.env
 

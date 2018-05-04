@@ -56,20 +56,17 @@ Album.hasMany(Song, {
   as: 'songs'
 })
 Album.belongsTo(Artist, {
-  as: 'artists'
+  as: 'artist'
 })
 
 Song.belongsTo(Local, {
   as: 'audio'
 })
-Song.belongsTo(Local, {
-  as: 'cover'
-})
 Album.belongsTo(Local, {
   as: 'cover'
 })
 
-sequelize.sync().catch(err => {
+sequelize.sync({ logging: false }).catch(err => {
   console.error('Unable to sync model structures: ', err)
 })
 

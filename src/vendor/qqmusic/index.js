@@ -67,7 +67,12 @@ export function getAlbumInfo(albumMid) {
         song_cnt: result.data.total_song_num,
         release_date: result.data.aDate,
         language: result.data.lan,
-        genre: result.data.genre
+        genre: result.data.genre,
+        artist: {
+          id: result.data.singerid,
+          mid: result.data.singermid,
+          name: result.data.singername
+        }
       }
     })
 }
@@ -88,10 +93,9 @@ export function getAudioStream(filename) {
 }
 
 export function getAlbumArtStream(albumId) {
-  const idStr = albumId.toString()
+  const id = albumId.toString()
+  const sid = id.substr(id.length - 2).replace(/^0+/, '')
   return fetch(
-    `https://y.gtimg.cn/music/photo/album_500/${idStr.substr(
-      idStr.length - 2
-    )}/500_albumpic_${idStr}_0.jpg`
+    `https://y.gtimg.cn/music/photo/album_500/${sid}/500_albumpic_${id}_0.jpg`
   ).then(res => res.body)
 }

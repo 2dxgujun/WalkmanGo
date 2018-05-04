@@ -13,9 +13,18 @@ program
 Promise.promisify(fs.readFile)(program.config || './walkman.ini', 'utf-8')
   .then(ini.parse)
   .then(config => {
-    const { dbpath, songdir, quality, period, uin, playlists } = config.general
+    const {
+      dbpath,
+      songdir,
+      artdir,
+      quality,
+      period,
+      uin,
+      playlists
+    } = config.general
     process.env.walkman_config_dbpath = dbpath
     process.env.walkman_config_songdir = songdir
+    process.env.walkman_config_artdir = artdir
     process.env.walkman_config_period = period
     process.env.walkman_config_uin = uin
     process.env.walkman_config_playlists = playlists

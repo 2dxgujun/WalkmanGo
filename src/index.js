@@ -13,22 +13,15 @@ program
 Promise.promisify(fs.readFile)(program.config || './walkman.ini', 'utf-8')
   .then(ini.parse)
   .then(config => {
-    const {
-      dbpath,
-      songdir,
-      artdir,
-      quality,
-      period,
-      uin,
-      playlists
-    } = config.general
+    const { dbpath, songdir, artdir, bitrate, interval } = config.general
+    const { uin, playlists } = config.personal
     process.env.walkman_config_dbpath = dbpath
     process.env.walkman_config_songdir = songdir
     process.env.walkman_config_artdir = artdir
-    process.env.walkman_config_period = period
+    process.env.walkman_config_interval = interval
     process.env.walkman_config_uin = uin
     process.env.walkman_config_playlists = playlists
-    process.env.walkman_config_quality = quality
+    process.env.walkman_config_bitrate = bitrate
 
     const core = require('./core')
     core.schedule()

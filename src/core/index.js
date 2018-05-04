@@ -13,7 +13,7 @@ const queue = new Queue(1 /*max concurrent*/, Infinity)
 
 export function schedule() {
   new CronJob(
-    `00 */${process.env.walkman_config_period} * * * *`,
+    `00 */5 * * * *`,
     run,
     null, // onComplete
     true, // start now

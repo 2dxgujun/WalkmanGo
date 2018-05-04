@@ -62,22 +62,20 @@ function findOrCreateSong(song, options) {
 }
 
 function findOrCreateAlbum(album, options) {
-  return sequelize.transaction(t => {
-    return Album.findOrCreate({
-      where: {
-        id: album.id
-      },
-      defaults: {
-        id: album.id,
-        mid: album.id,
-        name: album.name,
-        songCount: album.song_cnt,
-        releaseDate: album.release_date,
-        language: album.language,
-        genre: album.genre
-      },
-      ...options
-    })
+  return Album.findOrCreate({
+    where: {
+      id: album.id
+    },
+    defaults: {
+      id: album.id,
+      mid: album.id,
+      name: album.name,
+      songCount: album.song_cnt,
+      releaseDate: album.release_date,
+      language: album.language,
+      genre: album.genre
+    },
+    ...options
   })
 }
 

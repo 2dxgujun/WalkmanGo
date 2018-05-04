@@ -67,8 +67,4 @@ Album.belongsTo(Local, {
   as: 'cover'
 })
 
-sequelize.sync({ logging: false }).catch(err => {
-  console.error('Unable to sync model structures: ', err)
-})
-
 export { Album, Artist, Playlist, Song, Local }

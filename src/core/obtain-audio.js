@@ -1,6 +1,6 @@
 import * as qqmusic from '../vendor/qqmusic'
 import Sequelize from 'sequelize'
-import sequelize, { Album, Artist, Playlist, Song } from '../models'
+import sequelize, { Album, Artist, Playlist, Song, Local } from '../models'
 import path from 'path'
 import fs from 'fs'
 import mkdirp from 'mkdirp'

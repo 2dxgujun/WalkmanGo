@@ -12,19 +12,21 @@ import obtain_audio from './obtain-audio'
 
 const queue = new Queue(1 /*max concurrent*/, Infinity)
 
-export function schedule() {
-  new CronJob(
-    `00 */5 * * * *`,
-    run,
-    null, // onComplete
-    true, // start now
-    'Asia/Shanghai',
-    null, // context
-    true // run on init
-  )
+export function run() {
+  sequelize.sync().then(() => {
+    new CronJob(
+      `00 */5 * * * *`,
+      schedule,
+      null, // onComplete
+      true, // start now
+      'Asia/Shanghai',
+      null, // context
+      true // run on init
+    )
+  })
 }
 
-function run() {
+function schedule() {
   queue.add(fetch_data).catch(err => {
     console.error(err)
   })

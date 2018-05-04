@@ -23,8 +23,8 @@ Promise.promisify(fs.readFile)(program.config || './walkman.ini', 'utf-8')
     process.env.walkman_config_playlists = playlists
     process.env.walkman_config_bitrate = bitrate
 
-    const core = require('./core')
-    core.schedule()
+    const { run } = require('./core')
+    run()
   })
   .catch(err => {
     console.log(err.message)

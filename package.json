@@ -25,6 +25,7 @@
     "sharp": "^0.20.1",
     "sqlite3": "^4.0.0",
     "stream-meter": "^1.0.4",
+    "string-to-stream": "^1.1.1",
     "usb-detection": "^2.1.0"
   },
   "devDependencies": {

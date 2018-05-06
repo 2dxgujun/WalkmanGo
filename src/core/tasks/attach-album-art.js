@@ -1,5 +1,5 @@
 import Sequelize from 'sequelize'
-import sequelize, { Album, Artist, Playlist, Song, Local } from '../models'
+import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import fs from 'fs'
 import flac from 'node-flac'
 import id3 from 'node-id3'
@@ -20,7 +20,7 @@ export default function() {
         include: [
           {
             model: Local,
-            as: 'cover'
+            as: 'art'
           }
         ]
       }
@@ -52,7 +52,7 @@ function attach_flac(song) {
     .new(flac.format.MetadataType['PICTURE'])
     .then(obj => {
       return fs
-        .readFileAsync(song.album.cover.path)
+        .readFileAsync(song.album.art.path)
         .then(data => {
           return Promise.join(
             flac.metadata_object.picture_set_mime_type(
@@ -82,7 +82,7 @@ function attach_flac(song) {
 function attach_mp3(song) {
   return id3.update(
     {
-      image: song.album.cover.path
+      image: song.album.art.path
     },
     song.audio.path
   )

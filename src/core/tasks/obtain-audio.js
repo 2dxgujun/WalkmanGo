@@ -1,6 +1,6 @@
-import * as qqmusic from '../vendor/qqmusic'
+import * as qqmusic from '../../vendor/qqmusic'
 import Sequelize from 'sequelize'
-import sequelize, { Album, Artist, Playlist, Song, Local } from '../models'
+import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import path from 'path'
 import fs from 'fs'
 import mkdirp from 'mkdirp'
@@ -11,7 +11,7 @@ const mkdirpAsync = Promise.promisify(mkdirp)
 
 const {
   walkman_config_bitrate: bitrate,
-  walkman_config_songdir: songdir
+  walkman_config_workdir: workdir
 } = process.env
 
 export default function() {
@@ -91,9 +91,10 @@ function pipeAudio(song, audiopath) {
 }
 
 function getAudioPath(song) {
+  const audiodir = path.resolve(workdir, 'music')
   const extname = path.extname(getTargetName(song))
-  const songfile = `${song.artists[0].name}-${song.name}${extname}`
-  const audiopath = path.resolve(songdir, songfile)
+  const songfile = `${song.artists[0].name} - ${song.name}${extname}`
+  const audiopath = path.resolve(audiodir, songfile)
   return audiopath
 }
 

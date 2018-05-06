@@ -1,6 +1,6 @@
-import * as qqmusic from '../vendor/qqmusic'
+import * as qqmusic from '../../vendor/qqmusic'
 import Sequelize from 'sequelize'
-import sequelize, { Album, Artist, Playlist, Song } from '../models'
+import sequelize, { Album, Artist, Playlist, Song } from '../../models'
 
 export default function() {
   return fetchPlaylists().then(fetchSongs)

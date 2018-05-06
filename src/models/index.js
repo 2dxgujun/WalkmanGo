@@ -2,9 +2,13 @@ import fs from 'fs'
 import path from 'path'
 import Sequelize from 'sequelize'
 
+const { walkman_config_workdir: workdir } = process.env
+
+const dbpath = path.resolve(workdir, 'walkman-go.db')
+
 const sequelize = new Sequelize('main', null, null, {
   dialect: 'sqlite',
-  storage: process.env.walkman_config_dbpath,
+  storage: dbpath,
   logging: false
 })
 
@@ -63,11 +67,14 @@ Album.belongsTo(Artist, {
   as: 'artist'
 })
 
+Playlist.belongsTo(Local, {
+  as: 'm3u'
+})
 Song.belongsTo(Local, {
   as: 'audio'
 })
 Album.belongsTo(Local, {
-  as: 'cover'
+  as: 'art'
 })
 
 export { Album, Artist, Playlist, Song, Local }

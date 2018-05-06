@@ -1,6 +1,6 @@
-import * as qqmusic from '../vendor/qqmusic'
+import * as qqmusic from '../../vendor/qqmusic'
 import Sequelize from 'sequelize'
-import sequelize, { Album, Artist, Playlist, Song, Local } from '../models'
+import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs'
@@ -10,7 +10,7 @@ import meter from 'stream-meter'
 Promise.promisifyAll(fs)
 const mkdirpAsync = Promise.promisify(mkdirp)
 
-const { walkman_config_artdir: artdir } = process.env
+const { walkman_config_workdir: workdir } = process.env
 
 export default function() {
   return Album.all({
@@ -56,7 +56,7 @@ function markArt(album, artpath, bytes) {
       },
       { transaction: t }
     ).then(art => {
-      return album.setCover(art, { transaction: t })
+      return album.setArt(art, { transaction: t })
     })
   })
 }
@@ -91,8 +91,8 @@ function pipeArt(album, artpath) {
 }
 
 function getAlbumArtPath(album) {
-  const artdir = process.env.walkman_config_artdir
-  const artfile = `${album.artist.name}-${album.name}.jpeg`
+  const artdir = path.resolve(workdir, 'art')
+  const artfile = `${album.artist.name} - ${album.name}.jpeg`
   const artpath = path.resolve(artdir, artfile)
   return artpath
 }

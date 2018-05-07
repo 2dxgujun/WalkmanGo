@@ -110,18 +110,18 @@ function isAlbumArtAttached_mp3(song) {
 function isAlbumArtAttached_flac(song) {
   return flac.metadata.new().then(it => {
     return flac.metadata.init(it, song.audio.path, true, false).then(() => {
-      function findPictureRecursive(it) {
+      function isPictureBlockExistsRecursive(it) {
         return flac.metadata.get_block_type(it).then(type => {
           if (type === flac.format.MetadataType['PICTURE']) {
             return true
           }
           return flac.metadata.next(it).then(r => {
-            if (r) return findPictureRecursive(it)
+            if (r) return isPictureBlockExistsRecursive(it)
             return false
           })
         })
       }
-      return findPictureRecursive(it)
+      return isPictureBlockExistsRecursive(it)
     })
   })
 }

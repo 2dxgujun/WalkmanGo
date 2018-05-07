@@ -1,14 +1,14 @@
 import {
   attach_album_art,
   fetch_data,
-  obtain_audio,
-  obtain_album_art
+  fetch_audio,
+  fetch_album_art
 } from './tasks'
 
 export default function(queue) {
-  //queue.add(fetch_data).catch(err => {
-  //  console.error(err)
-  //})
+  queue.add(fetch_data).catch(err => {
+    console.error(err)
+  })
   //queue.add(obtain_audio).catch(err => {
   //  console.error(err)
   //})

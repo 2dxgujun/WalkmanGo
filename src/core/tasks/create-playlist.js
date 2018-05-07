@@ -4,7 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import flac from 'node-flac'
 import id3 from 'node-id3'
-import str2stream from 'string-to-stream'
+import StringToStream from 'string-to-stream'
 import M3UWriter from '../../utils/m3u-writer'
 
 Promise.promisifyAll(fs)
@@ -41,7 +41,7 @@ export default function() {
       playlist.songs.forEach(song => {
         const audiofile = path.basename(song.audio.path)
         const uri = `${playlist.name}\\${audiofile}`
-        const duration = 0
+        const duration = getAudioDuration(song)
         const title = `${song.artists[0].name} - ${song.name}`
         writer.file(uri, duration, title)
       })
@@ -60,11 +60,42 @@ function getAudioDuration(song) {
   }
 }
 
-function getAudioDuration_flac(song) {
-
+function getAudioStreamInfo(song) {
+  return flac.metadata.new().then(it => {
+    return flac.metadata.init(init, song.audio.path, true, false).then(() => {
+      function findStreamInfoRecursive(it) {
+        return flac.metadata.get_block_type(it).then(type => {
+          if (type === flac.format.MetadataType['STREAMINFO']) {
+            return flac.metadata.get_block(it)
+          }
+          return flac.metadata.next(it).then(r => {
+            if (r) return findStreamInfoRecursive(it)
+            return null
+          })
+        })
+      }
+      return findStreamInfoRecursive(it)
+    })
+  })
 }
 
-function getAudioDuration_mp3(song) {}
+function getAudioDuration_flac(song) {
+  return getAudioStreamInfo(song).then(info => {
+    if (info) {
+      return parseInt(info.data.total_samples / info.data.sample_rate)
+    }
+    return -1
+  })
+}
+
+function getAudioDuration_mp3(song) {
+  return id3.readAsync(song.audio.path).then(tags => {
+    if (tags.length) {
+      return tags.length
+    }
+    return -1
+  })
+}
 
 function getM3UPath(playlist) {
   const m3ufile = `${playlist.name}.m3u`

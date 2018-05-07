@@ -72,7 +72,7 @@ function pipeArt(album, artpath) {
               .jpeg()
           )
           .pipe(m)
-          .pipe(fs.createWriteStream(artpath))
+          .pipe(fs.createWriteStream(temppath))
         source.on('error', reject)
         stream.on('error', reject)
         stream.on('finish', () => {

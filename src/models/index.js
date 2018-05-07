@@ -68,7 +68,7 @@ Album.belongsTo(Artist, {
 })
 
 Playlist.belongsTo(Local, {
-  as: 'm3u'
+  as: 'url'
 })
 Song.belongsTo(Local, {
   as: 'audio'

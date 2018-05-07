@@ -8,6 +8,9 @@ var schedulerId
 function scheduleFindDrives(device, onAdd) {
   schedulerId = setInterval(() => {
     getWalkmanDrives()
+      .filter(drive => {
+        return drive.mountpoints && drive.mountpoints.length > 0
+      })
       .then(drives => {
         if (drives && drives.length > 0) {
           device.drives = drives
@@ -27,11 +30,17 @@ function unscheduleFindDrives() {
   }
 }
 
+function getWalkmanDrives() {
+  return drivelist.listAsync().filter(drive => {
+    return drive.description.includes('WALKMAN')
+  })
+}
+
 export default function(onAdd, onRemove) {
   detection
     .find()
     .filter(device => {
-      return device.deviceName === 'WALKMAN'
+      return device.deviceName.includes('WALKMAN')
     })
     .then(devices => {
       if (devices && devices.length > 0) {
@@ -41,7 +50,7 @@ export default function(onAdd, onRemove) {
     })
     .then(device => {
       if (device) {
-        scheduleFindDrives(device, onAdd)
+        onAdd(null, device)
       }
     })
     .catch(e => {
@@ -49,14 +58,13 @@ export default function(onAdd, onRemove) {
     })
 
   detection.on('add', device => {
-    if (device.deviceName === 'WALKMAN') {
-      scheduleFindDrives(device, onAdd)
+    if (device.deviceName.includes('WALKMAN')) {
+      onAdd(null, device)
     }
   })
 
   detection.on('remove', device => {
-    if (device.deviceName === 'WALKMAN') {
-      unscheduleFindDrives()
+    if (device.deviceName.includes('WALKMAN')) {
       onRemove(null, device)
     }
   })
@@ -65,11 +73,6 @@ export default function(onAdd, onRemove) {
   process.on('SIGINT', () => {
     // Allow the process to exit
     detection.stopMonitoring()
-  })
-}
-
-function getWalkmanDrives() {
-  return drivelist.listAsync().filter(drive => {
-    return drive.description === 'WALKMAN'
+    process.exit(0)
   })
 }

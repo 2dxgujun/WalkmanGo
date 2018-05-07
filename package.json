@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "export NODE_ENV=development && babel-node --expose-gc src",
     "build": "babel src -d dist",
+    "start": "node dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "2dxgujun",

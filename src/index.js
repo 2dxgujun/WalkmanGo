@@ -2,10 +2,12 @@ import fs from 'fs'
 import ini from 'ini'
 import Bluebird from 'bluebird'
 import program from 'commander'
+import mkdirp from 'mkdirp'
 import Queue from 'promise-queue'
 import { CronJob } from 'cron'
 
 global.Promise = Bluebird
+const mkdirpAsync = Promise.promisify(mkdirp)
 
 const queue = new Queue(1 /*max concurrent*/, Infinity)
 
@@ -42,6 +44,16 @@ function init_walkman_detection() {
   )
 }
 
+function setup(config) {
+  const { workdir, bitrate } = config.general
+  const { uin, playlists } = config.personal
+  process.env.walkman_config_workdir = workdir
+  process.env.walkman_config_bitrate = bitrate
+  process.env.walkman_config_uin = uin
+  process.env.walkman_config_playlists = playlists
+  return mkdirpAsync(workdir)
+}
+
 program
   .version('0.0.1')
   .option('-c, --config <path>', 'set config file. defaults to ./walkman.ini')
@@ -49,14 +61,7 @@ program
 
 Promise.promisify(fs.readFile)(program.config || './walkman.ini', 'utf-8')
   .then(ini.parse)
-  .then(config => {
-    const { workdir, bitrate } = config.general
-    const { uin, playlists } = config.personal
-    process.env.walkman_config_workdir = workdir
-    process.env.walkman_config_bitrate = bitrate
-    process.env.walkman_config_uin = uin
-    process.env.walkman_config_playlists = playlists
-  })
+  .then(setup)
   .then(schedule)
   .then(init_walkman_detection)
   .catch(err => {

@@ -24,15 +24,12 @@ export default function() {
     ]
   }).map(
     song => {
-      const audiopath = getAudioPath(song)
-      return fs.accessAsync(audiopath).catch(() => {
-        return mkdirpAsync(path.dirname(audiopath))
-          .then(() => {
-            return pipeAudio(song, audiopath)
-          })
-          .then(bytes => {
+      return getAudioPath(song).then(audiopath => {
+        return fs.accessAsync(audiopath).catch(() => {
+          return pipeAudio(song, audiopath).then(bytes => {
             return markAudio(song, audiopath, bytes)
           })
+        })
       })
     },
     { concurrency: 4 }
@@ -92,10 +89,12 @@ function pipeAudio(song, audiopath) {
 
 function getAudioPath(song) {
   const audiodir = path.resolve(workdir, 'music')
-  const extname = path.extname(getTargetName(song))
-  const songfile = `${song.artists[0].name} - ${song.name}${extname}`
-  const audiopath = path.resolve(audiodir, songfile)
-  return audiopath
+  return mkdirpAsync(audiodir).then(() => {
+    const extname = path.extname(getTargetName(song))
+    const songfile = `${song.artists[0].name} - ${song.name}${extname}`
+    const audiopath = path.resolve(audiodir, songfile)
+    return audiopath
+  })
 }
 
 function getTargetSize(song) {

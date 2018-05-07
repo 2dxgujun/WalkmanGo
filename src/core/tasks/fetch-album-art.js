@@ -22,15 +22,12 @@ export default function() {
     ]
   }).map(
     album => {
-      const artpath = getAlbumArtPath(album)
-      return fs.accessAsync(artpath).catch(() => {
-        return mkdirpAsync(path.dirname(artpath))
-          .then(() => {
-            return pipeArt(album, artpath)
-          })
-          .then(bytes => {
+      return getAlbumArtPath(album).then(artpath => {
+        return fs.accessAsync(artpath).catch(() => {
+          return pipeArt(album, artpath).then(bytes => {
             return markArt(album, artpath, bytes)
           })
+        })
       })
     },
     { concurrency: 4 }
@@ -92,7 +89,9 @@ function pipeArt(album, artpath) {
 
 function getAlbumArtPath(album) {
   const artdir = path.resolve(workdir, 'art')
-  const artfile = `${album.artist.name} - ${album.name}.jpeg`
-  const artpath = path.resolve(artdir, artfile)
-  return artpath
+  return mkdirpAsync(artdir).then(() => {
+    const artfile = `${album.artist.name} - ${album.name}.jpeg`
+    const artpath = path.resolve(artdir, artfile)
+    return artpath
+  })
 }

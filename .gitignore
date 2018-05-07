@@ -4,7 +4,4 @@
 dist
 node_modules
 
-walkman.db
-music
-music.backup
-album_art
+WalkmanGo

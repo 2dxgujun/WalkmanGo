@@ -19,10 +19,12 @@ function schedule() {
       return sequelize.sync()
     })
     .then(() => {
-      const enqueue = require('./core/enqueue-tasks')
-      new CronJob(
+      const enqueue = require('./core/enqueue-tasks').default
+      return new CronJob(
         `00 */5 * * * *`,
-        enqueue,
+        () => {
+          return enqueue(queue)
+        },
         null, // onComplete
         true, // start now
         'Asia/Shanghai',
@@ -63,7 +65,7 @@ Promise.promisify(fs.readFile)(program.config || './walkman.ini', 'utf-8')
   .then(ini.parse)
   .then(setup)
   .then(schedule)
-  .then(init_walkman_detection)
+  //.then(init_walkman_detection)
   .catch(err => {
     console.log(err.message)
     process.exit(1)

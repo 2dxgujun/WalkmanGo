@@ -119,7 +119,7 @@ function fetchPlaylists() {
           transaction: t
         }).then(() => {
           return Promise.map(playlists, playlist => {
-            return findThenUpdateOrCreatePlaylist(playlist, { transaction: t })
+            return createOrUpdatePlaylist(playlist, { transaction: t })
           })
         })
       })
@@ -140,7 +140,7 @@ function findOrCreatePlaylist(playlist, options) {
   })
 }
 
-function findThenUpdateOrCreatePlaylist(playlist, options) {
+function createOrUpdatePlaylist(playlist, options) {
   return findOrCreatePlaylist(playlist, options).spread((instance, created) => {
     if (created) return instance
     return instance.update(
@@ -148,7 +148,7 @@ function findThenUpdateOrCreatePlaylist(playlist, options) {
         name: playlist.name,
         songCount: playlist.song_cnt
       },
-      ...options
+      options
     )
   })
 }

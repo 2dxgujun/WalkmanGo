@@ -9,13 +9,13 @@ export default function(queue) {
   queue.add(fetch_data).catch(err => {
     console.error(err)
   })
-  //queue.add(obtain_audio).catch(err => {
-  //  console.error(err)
-  //})
-  //queue.add(obtain_album_art).catch(err => {
-  //  console.error(err)
-  //})
-  //queue.add(attach_album_art).catch(err => {
-  //  console.error(err)
-  //})
+  queue.add(fetch_audio).catch(err => {
+    console.error(err)
+  })
+  queue.add(fetch_album_art).catch(err => {
+    console.error(err)
+  })
+  queue.add(attach_album_art).catch(err => {
+    console.error(err)
+  })
 }

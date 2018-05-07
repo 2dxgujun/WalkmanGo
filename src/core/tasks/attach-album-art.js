@@ -3,6 +3,7 @@ import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import fs from 'fs'
 import flac from 'node-flac'
 import id3 from 'node-id3'
+import sharp from 'sharp'
 
 Promise.promisifyAll(fs)
 Promise.promisifyAll(id3)
@@ -57,10 +58,20 @@ function attach_flac(song) {
           return Promise.join(
             flac.metadata_object.picture_set_mime_type(
               obj,
-              song.audio.mimeType
+              song.album.art.mimeType
             ),
             flac.metadata_object.picture_set_data(obj, data)
           )
+        })
+        .then(() => {
+          return sharp(song.album.art.path).metadata()
+        })
+        .then(metadata => {
+          obj.data.type =
+            flac.format.StreamMetadata_Picture_Type['Cover (front)']
+          obj.data.width = metadata.width
+          obj.data.height = metadata.height
+          obj.data.depth = metadata.channels * 8 // 8 bit depth
         })
         .then(() => {
           return flac.metadata_object.picture_is_legal(obj).then(() => {

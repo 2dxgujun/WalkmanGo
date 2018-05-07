@@ -6,7 +6,7 @@ import flac from 'node-flac'
 import mp3duration from 'mp3-duration'
 import StringToStream from 'string-to-stream'
 import M3UWriter from '../../utils/m3u-writer'
-import meter from 'meter'
+import meter from 'stream-meter'
 
 Promise.promisifyAll(fs)
 const mp3durationAsync = Promise.promisify(mp3duration)

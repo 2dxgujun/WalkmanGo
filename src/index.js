@@ -4,7 +4,8 @@ import ini from 'ini'
 import Bluebird from 'bluebird'
 import program from 'commander'
 
-import { schedule, unschedule } from './core/schedule-fetch'
+import { schedule as schedule_sync } from './core/schedule-sync'
+import init_detection from './core/init-detection'
 
 global.Promise = Bluebird
 
@@ -22,11 +23,6 @@ global.Promise = Bluebird
 //                  2. 处理歌单数据（新增/删除歌曲数量，提示确认）
 //                  3. 传输或删除歌曲文件
 //                  4. 最后传输M3U文件
-
-function init_walkman_detection() {
-  const detect = require('./core/detect-walkman').default
-  return detect((err, device) => {}, (err, device) => {})
-}
 
 function setup(config) {
   let { workdir } = config.general
@@ -51,8 +47,8 @@ fse
   .readFile(program.config || './walkman.ini', 'utf-8')
   .then(ini.parse)
   .then(setup)
-  .then(schedule)
-  .then(init_walkman_detection)
+  .then(schedule_sync)
+  .then(init_detection)
   .catch(err => {
     console.log(err.message)
     process.exit(1)

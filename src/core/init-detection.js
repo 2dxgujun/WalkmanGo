@@ -1,6 +1,22 @@
 import detection from 'usb-detection'
+import { transfer, cancel as cancelTransfer } from './transfer'
+import {
+  schedule as scheduleSync,
+  unschedule as unscheduleSync
+} from './schedule-sync'
 
-export default function(onAdd, onRemove) {
+export default function() {
+  detect(
+    (err, device) => {
+      return unscheduleSync().then(transfer).then(scheduleSync)
+    },
+    (err, device) => {
+      return cancelTransfer().then(scheduleSync)
+    }
+  )
+}
+
+function detect(onDetect, onRemove) {
   detection
     .find()
     .filter(device => {
@@ -8,22 +24,16 @@ export default function(onAdd, onRemove) {
     })
     .then(devices => {
       if (devices && devices.length > 0) {
-        return devices[0]
-      }
-      return null
-    })
-    .then(device => {
-      if (device) {
-        onAdd(null, device)
+        onDetect(null, devices[0])
       }
     })
     .catch(e => {
-      onAdd(e)
+      onDetect(e)
     })
 
   detection.on('add', device => {
     if (device.deviceName.includes('WALKMAN')) {
-      onAdd(null, device)
+      onDetect(null, device)
     }
   })
 

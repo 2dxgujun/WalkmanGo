@@ -9,7 +9,8 @@ const dbpath = path.resolve(workdir, 'walkman-go.db')
 const sequelize = new Sequelize('main', null, null, {
   dialect: 'sqlite',
   storage: dbpath,
-  logging: false
+  logging: false,
+  operatorsAliases: Sequelize.Op
 })
 
 export default sequelize

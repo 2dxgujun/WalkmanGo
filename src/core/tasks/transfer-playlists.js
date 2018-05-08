@@ -48,41 +48,20 @@ function prepare() {
 }
 
 function transfer(walkmanGoDir) {
-  return getAllPlaylists()
-    .map(playlist => {
-      return getWalkmanPlaylistDir(walkmanGoDir, playlist)
-        .then(fse.ensureDir)
-        .then(() => playlist)
+  return transferAudios(walkmanGoDir)
+    .then(() => {
+      return transferM3Us(walkmanGoDir)
     })
-    .map(playlist => {
-      return Promise.filter(playlist.songs, song => {
-        return getWalkmanAudioPath(walkmanGoDir, playlist, song).then(dest => {
-          return fse.pathExists(dest).then(exists => {
-            return !exists
-          })
-        })
-      }).map(song => {
-        return getWalkmanAudioPath(walkmanGoDir, playlist, song).then(dest => {
-          return {
-            src: song.audio.path,
-            dest
-          }
-        })
-      })
-    })
-    .reduce((acc, tasks) => {
-      return acc.concat(tasks)
-    })
-    .map(task => {
-      const { src, dest } = task
-      const temppath = `${dest}.temp`
-      return fse.copy(src, temppath).then(() => {
-        return fse.rename(temppath, dest)
-      })
+    .then(() => {
+      return trim(walkmanGoDir)
     })
 }
 
-function getAllPlaylists() {
+function trim(walkmanGoDir) {
+  return Promise.resolve()
+}
+
+function transferAudios(walkmanGoDir) {
   return Playlist.all({
     include: [
       {
@@ -94,21 +73,73 @@ function getAllPlaylists() {
             as: 'audio'
           }
         ]
-      },
+      }
+    ]
+  })
+    .map(playlist => {
+      return Promise.filter(playlist.songs, song => {
+        return getWalkmanAudioPath(walkmanGoDir, playlist, song).then(dest => {
+          return fse.pathExists(dest).then(exists => {
+            return !exists
+          })
+        })
+      }).map(song => {
+        return getWalkmanAudioPath(walkmanGoDir, playlist, song).then(dest => {
+          return fse.ensureDir(path.dirname(dest)).then(() => {
+            return {
+              src: song.audio.path,
+              dest
+            }
+          })
+        })
+      })
+    })
+    .reduce((acc, tasks) => {
+      return acc.concat(tasks)
+    })
+    .map(copyFile, { concurrency: 4 })
+}
+
+function transferM3Us(walkmanGoDir) {
+  return Playlist.all({
+    include: [
       {
         model: Local,
         as: 'url'
       }
     ]
   })
+    .map(playlist => {
+      return getWalkmanPlaylistUrlPath(walkmanGoDir, playlist).then(dest => {
+        return {
+          src: playlist.url.path,
+          dest
+        }
+      })
+    })
+    .map(copyFile, { concurrency: 4 })
 }
 
-function getWalkmanPlaylistDir(walkmanGoDir, playlist) {
+function copyFile(options) {
+  const { src, dest } = task
+  const temppath = `${dest}.temp`
+  return fse.copy(src, temppath).then(() => {
+    return fse.rename(temppath, dest)
+  })
+}
+
+function getWalkmanPlaylistUrlPath(walkmanGoDir, playlist) {
+  return Promise.resolve(
+    path.resolve(walkmanGoDir, path.basename(playlist.url.path))
+  )
+}
+
+function getWalkmanAudioDir(walkmanGoDir, playlist) {
   return Promise.resolve(path.resolve(walkmanGoDir, playlist.name))
 }
 
 function getWalkmanAudioPath(walkmanGoDir, playlist, song) {
-  return getWalkmanPlaylistDir(walkmanGoDir, playlist).then(dir => {
+  return getWalkmanAudioDir(walkmanGoDir, playlist).then(dir => {
     return path.resolve(dir, path.basename(song.audio.path))
   })
 }

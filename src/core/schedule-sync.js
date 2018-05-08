@@ -12,9 +12,9 @@ function enqueueTasks() {
     create_m3u
   } = require('./tasks')
 
-  //queue.add(fetch_playlists).catch(err => {
-  //  console.error(err)
-  //})
+  queue.add(fetch_playlists).catch(err => {
+    console.error(err)
+  })
   //queue.add(fetch_audios).catch(err => {
   //  console.error(err)
   //})

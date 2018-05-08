@@ -11,6 +11,9 @@ export function getPlaylists(uin) {
   )
     .then(res => res.json())
     .then(result => {
+      if (result.code !== 0) {
+        throw new Error(result.message)
+      }
       return result.data.disslist.map(diss => {
         return {
           id: diss.tid,
@@ -60,6 +63,7 @@ export function getAlbumInfo(albumMid) {
   )
     .then(res => res.json())
     .then(result => {
+      console.log(result)
       return {
         id: result.data.id,
         mid: result.data.mid,

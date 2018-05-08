@@ -9,21 +9,6 @@ import init_detection from './core/init-detection'
 
 global.Promise = Bluebird
 
-// 监听Walkman连接/断开事件
-// 当前状态：1. Walkman已连接
-//           2. 无Walkman连接
-//
-// 无Walkman连接时，恢复运行Cron任务
-// 有Walkman连接时，1. 当前正在运行Task：等Task运行结束，执行以下操作
-//                  2. 当前无Task正在运行：立即执行以下操作
-//
-// 停止执行Cron任务，开启Walkman同步任务队列
-//
-// Walkman同步任务：1. 检测Walkman设备挂载点（若有多个挂载点，提示选择）
-//                  2. 处理歌单数据（新增/删除歌曲数量，提示确认）
-//                  3. 传输或删除歌曲文件
-//                  4. 最后传输M3U文件
-
 function setup(config) {
   let { workdir } = config.general
   const { bitrate } = config.general

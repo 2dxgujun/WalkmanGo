@@ -35,20 +35,27 @@ export function getPlaylistSongs(playlistId) {
   )
     .then(res => res.json())
     .then(result => {
+      if (result.code !== 0) {
+        throw new Error(result.message)
+      }
       return result.cdlist[0].songlist.map(song => {
         return {
           id: song.songid,
           mid: song.strMediaMid,
           name: song.songname,
-          album_id: song.albumid,
-          album_mid: song.albummid,
-          artists: song.singer.map(singer => {
-            return {
-              id: singer.id,
-              mid: singer.mid,
-              name: singer.name
-            }
-          }),
+          album_id: song.albumid, // may be 0
+          album_mid: song.albummid, // may be ''
+          artists: song.singer // may be []
+            .filter(singer => {
+              return singer.id && singer.mid && singer.name
+            })
+            .map(singer => {
+              return {
+                id: singer.id,
+                mid: singer.mid,
+                name: singer.name
+              }
+            }),
           size128: song.size128,
           size320: song.size320,
           sizeflac: song.sizeflac
@@ -63,7 +70,9 @@ export function getAlbumInfo(albumMid) {
   )
     .then(res => res.json())
     .then(result => {
-      console.log(result)
+      if (result.code !== 0) {
+        throw new Error(result.message)
+      }
       return {
         id: result.data.id,
         mid: result.data.mid,

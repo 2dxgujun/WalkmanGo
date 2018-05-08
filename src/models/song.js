@@ -13,6 +13,11 @@ export default function(sequelize, DataTypes) {
         allowNull: false,
         field: 'mid'
       },
+      albumMid: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'album_mid'
+      },
       name: {
         type: DataTypes.STRING,
         allowNull: false,

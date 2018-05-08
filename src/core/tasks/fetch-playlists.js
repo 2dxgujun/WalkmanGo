@@ -6,9 +6,36 @@ export default function() {
   return fetchPlaylists().then(fetchSongs)
 }
 
+function fetchPlaylists() {
+  const uid = process.env.walkman_config_uin
+  const includes = process.env.walkman_config_playlists.split(',')
+
+  return qqmusic
+    .getPlaylists(uid)
+    .filter(playlist => {
+      return includes.includes(playlist.name)
+    })
+    .then(playlists => {
+      return sequelize.transaction(t => {
+        return Playlist.destroy({
+          where: {
+            id: {
+              [Sequelize.Op.notIn]: playlists.map(it => it.id)
+            }
+          },
+          transaction: t
+        }).then(() => {
+          return Promise.map(playlists, playlist => {
+            return findThenCreateOrUpdatePlaylist(playlist, { transaction: t })
+          })
+        })
+      })
+    })
+}
+// TODO delay fetch album info
 function fetchSongs() {
   return Playlist.all().mapSeries(playlist => {
-    return sequelize.transaction(t => {
+    return sequelize.transaction(t => { // TODO transaction only contain sql operation
       return qqmusic
         .getPlaylistSongs(playlist.id)
         .mapSeries(song => {
@@ -68,7 +95,7 @@ function findOrCreateAlbum(album, options) {
     },
     defaults: {
       id: album.id,
-      mid: album.id,
+      mid: album.mid,
       name: album.name,
       songCount: album.song_cnt,
       releaseDate: album.release_date,
@@ -99,33 +126,6 @@ function findOrCreateArtists(artists, options) {
   })
 }
 
-function fetchPlaylists() {
-  const uid = process.env.walkman_config_uin
-  const includes = process.env.walkman_config_playlists.split(',')
-
-  return qqmusic
-    .getPlaylists(uid)
-    .filter(playlist => {
-      return includes.includes(playlist.name)
-    })
-    .then(playlists => {
-      return sequelize.transaction(t => {
-        return Playlist.destroy({
-          where: {
-            id: {
-              [Sequelize.Op.notIn]: playlists.map(it => it.id)
-            }
-          },
-          transaction: t
-        }).then(() => {
-          return Promise.map(playlists, playlist => {
-            return createOrUpdatePlaylist(playlist, { transaction: t })
-          })
-        })
-      })
-    })
-}
-
 function findOrCreatePlaylist(playlist, options) {
   return Playlist.findOrCreate({
     where: {
@@ -140,7 +140,7 @@ function findOrCreatePlaylist(playlist, options) {
   })
 }
 
-function createOrUpdatePlaylist(playlist, options) {
+function findThenCreateOrUpdatePlaylist(playlist, options) {
   return findOrCreatePlaylist(playlist, options).spread((instance, created) => {
     if (created) return instance
     return instance.update(

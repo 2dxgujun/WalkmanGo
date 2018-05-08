@@ -3,7 +3,7 @@ import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import sharp from 'sharp'
 import path from 'path'
-import fse from 'fse'
+import fse from 'fs-extra'
 import meter from 'stream-meter'
 
 const { walkman_config_workdir: workdir } = process.env
@@ -19,7 +19,7 @@ export default function() {
   }).map(
     album => {
       return getAlbumArtPath(album).then(artpath => {
-        return fs.access(artpath).catch(() => {
+        return fse.access(artpath).catch(() => {
           return pipeArt(album, artpath).then(bytes => {
             return markArt(album, artpath, bytes)
           })
@@ -68,7 +68,7 @@ function pipeArt(album, artpath) {
               .jpeg()
           )
           .pipe(m)
-          .pipe(fs.createWriteStream(temppath))
+          .pipe(fse.createWriteStream(temppath))
         source.on('error', reject)
         stream.on('error', reject)
         stream.on('finish', () => {
@@ -77,7 +77,7 @@ function pipeArt(album, artpath) {
       })
     })
     .then(bytes => {
-      return fs.rename(temppath, artpath).then(() => {
+      return fse.rename(temppath, artpath).then(() => {
         return bytes
       })
     })

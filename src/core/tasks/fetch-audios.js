@@ -21,7 +21,7 @@ export default function() {
   }).map(
     song => {
       return getAudioPath(song).then(audiopath => {
-        return fs.access(audiopath).catch(() => {
+        return fse.access(audiopath).catch(() => {
           return pipeAudio(song, audiopath).then(bytes => {
             return markAudio(song, audiopath, bytes)
           })
@@ -65,7 +65,7 @@ function pipeAudio(song, audiopath) {
     .then(source => {
       return new Promise((resolve, reject) => {
         const m = meter()
-        const stream = source.pipe(m).pipe(fs.createWriteStream(temppath))
+        const stream = source.pipe(m).pipe(fse.createWriteStream(temppath))
         source.on('error', reject)
         stream.on('error', reject)
         stream.on('finish', () => {
@@ -77,7 +77,7 @@ function pipeAudio(song, audiopath) {
       if (getTargetSize(song) != bytes) {
         throw new Error('Not match target audio size')
       }
-      return fs.rename(temppath, audiopath).then(() => {
+      return fse.rename(temppath, audiopath).then(() => {
         return bytes
       })
     })

@@ -1,6 +1,6 @@
 import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
-import fse from 'fse'
+import fse from 'fs-extra'
 import path from 'path'
 import flac from 'node-flac'
 import mp3duration from 'mp3-duration'

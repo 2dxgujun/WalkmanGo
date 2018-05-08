@@ -1,16 +1,17 @@
 import { CronJob } from 'cron'
 import queue from './the-queue'
-import {
-  attach_album_art,
-  fetch_playlists,
-  fetch_audios,
-  fetch_album_art,
-  create_m3u
-} from './tasks'
 
 var job = null
 
 function enqueueTasks() {
+  const {
+    attach_album_art,
+    fetch_playlists,
+    fetch_audios,
+    fetch_album_art,
+    create_m3u
+  } = require('./tasks')
+
   queue.add(fetch_playlists).catch(err => {
     console.error(err)
   })
@@ -35,7 +36,7 @@ export function schedule() {
     })
   }
 
-  const sequelize = require('./models').default
+  const sequelize = require('../models').default
   return sequelize
     .authenticate()
     .then(() => {

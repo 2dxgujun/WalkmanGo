@@ -1,4 +1,5 @@
 import fse from 'fs-extra'
+import path from 'path'
 import ini from 'ini'
 import Bluebird from 'bluebird'
 import program from 'commander'
@@ -28,8 +29,12 @@ function init_walkman_detection() {
 }
 
 function setup(config) {
-  const { workdir, bitrate } = config.general
+  let { workdir } = config.general
+  const { bitrate } = config.general
   const { uin, playlists } = config.personal
+  if (workdir[0] === '~') {
+    workdir = path.join(process.env.HOME, workdir.slice(1))
+  }
   process.env.walkman_config_workdir = workdir
   process.env.walkman_config_bitrate = bitrate
   process.env.walkman_config_uin = uin
@@ -42,7 +47,7 @@ program
   .option('-c, --config <path>', 'set config file. defaults to ./walkman.ini')
   .parse(process.argv)
 
-fs
+fse
   .readFile(program.config || './walkman.ini', 'utf-8')
   .then(ini.parse)
   .then(setup)

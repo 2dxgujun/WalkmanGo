@@ -3,12 +3,8 @@ import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import sharp from 'sharp'
 import path from 'path'
-import fs from 'fs'
-import mkdirp from 'mkdirp'
+import fse from 'fse'
 import meter from 'stream-meter'
-
-Promise.promisifyAll(fs)
-const mkdirpAsync = Promise.promisify(mkdirp)
 
 const { walkman_config_workdir: workdir } = process.env
 
@@ -23,7 +19,7 @@ export default function() {
   }).map(
     album => {
       return getAlbumArtPath(album).then(artpath => {
-        return fs.accessAsync(artpath).catch(() => {
+        return fs.access(artpath).catch(() => {
           return pipeArt(album, artpath).then(bytes => {
             return markArt(album, artpath, bytes)
           })
@@ -81,7 +77,7 @@ function pipeArt(album, artpath) {
       })
     })
     .then(bytes => {
-      return fs.renameAsync(temppath, artpath).then(() => {
+      return fs.rename(temppath, artpath).then(() => {
         return bytes
       })
     })
@@ -89,7 +85,7 @@ function pipeArt(album, artpath) {
 
 function getAlbumArtPath(album) {
   const artdir = path.resolve(workdir, 'art')
-  return mkdirpAsync(artdir).then(() => {
+  return fse.ensureDir(artdir).then(() => {
     const artfile = `${album.artist.name} - ${album.name}.jpeg`
     const artpath = path.resolve(artdir, artfile)
     return artpath

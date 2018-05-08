@@ -1,40 +1,4 @@
 import detection from 'usb-detection'
-import drivelist from 'drivelist'
-
-Promise.promisifyAll(drivelist)
-
-var schedulerId
-
-function scheduleFindDrives(device, onAdd) {
-  schedulerId = setInterval(() => {
-    getWalkmanDrives()
-      .filter(drive => {
-        return drive.mountpoints && drive.mountpoints.length > 0
-      })
-      .then(drives => {
-        if (drives && drives.length > 0) {
-          device.drives = drives
-          unscheduleFindDrives()
-          onAdd(null, device)
-        }
-      })
-      .catch(e => {
-        onAdd(e)
-      })
-  }, 3000)
-}
-
-function unscheduleFindDrives() {
-  if (schedulerId) {
-    clearInterval(schedulerId)
-  }
-}
-
-function getWalkmanDrives() {
-  return drivelist.listAsync().filter(drive => {
-    return drive.description.includes('WALKMAN')
-  })
-}
 
 export default function(onAdd, onRemove) {
   detection

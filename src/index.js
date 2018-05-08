@@ -1,15 +1,11 @@
-import fs from 'fs'
+import fse from 'fs-extra'
 import ini from 'ini'
 import Bluebird from 'bluebird'
 import program from 'commander'
-import mkdirp from 'mkdirp'
 
-import GetPlaylists from './core/schedule-get-playlists'
+import { schedule, unschedule } from './core/schedule-fetch'
 
 global.Promise = Bluebird
-
-Promise.promisifyAll(fs)
-const mkdirpAsync = Promise.promisify(mkdirp)
 
 // 监听Walkman连接/断开事件
 // 当前状态：1. Walkman已连接
@@ -31,10 +27,6 @@ function init_walkman_detection() {
   return detect((err, device) => {}, (err, device) => {})
 }
 
-function schedule_get_playlists() {
-  return GetPlaylists.schedule()
-}
-
 function setup(config) {
   const { workdir, bitrate } = config.general
   const { uin, playlists } = config.personal
@@ -42,7 +34,7 @@ function setup(config) {
   process.env.walkman_config_bitrate = bitrate
   process.env.walkman_config_uin = uin
   process.env.walkman_config_playlists = playlists
-  return mkdirpAsync(workdir)
+  return fse.ensureDir(workdir)
 }
 
 program
@@ -51,10 +43,10 @@ program
   .parse(process.argv)
 
 fs
-  .readFileAsync(program.config || './walkman.ini', 'utf-8')
+  .readFile(program.config || './walkman.ini', 'utf-8')
   .then(ini.parse)
   .then(setup)
-  .then(schedule_get_playlists)
+  .then(schedule)
   .then(init_walkman_detection)
   .catch(err => {
     console.log(err.message)

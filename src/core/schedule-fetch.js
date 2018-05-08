@@ -10,25 +10,25 @@ import {
 
 var job = null
 
-function enqueue(queue) {
-  //queue.add(fetch_data).catch(err => {
-  //  console.error(err)
-  //})
-  //queue.add(fetch_audio).catch(err => {
-  //  console.error(err)
-  //})
-  //queue.add(fetch_album_art).catch(err => {
-  //  console.error(err)
-  //})
-  //queue.add(attach_album_art).catch(err => {
-  //  console.error(err)
-  //})
-  //queue.add(create_m3u).catch(err => {
-  //  console.error(err)
-  //})
+function enqueueTasks() {
+  queue.add(fetch_playlists).catch(err => {
+    console.error(err)
+  })
+  queue.add(fetch_audios).catch(err => {
+    console.error(err)
+  })
+  queue.add(fetch_album_art).catch(err => {
+    console.error(err)
+  })
+  queue.add(attach_album_art).catch(err => {
+    console.error(err)
+  })
+  queue.add(create_m3u).catch(err => {
+    console.error(err)
+  })
 }
 
-function schedule() {
+export function schedule() {
   if (job) {
     return Promise.try(() => {
       job.start()
@@ -44,9 +44,7 @@ function schedule() {
     .then(() => {
       job = new CronJob(
         `00 */5 * * * *`,
-        () => {
-          return enqueue(queue)
-        },
+        enqueueTasks,
         null, // onComplete
         true, // start now
         'Asia/Shanghai',
@@ -57,13 +55,8 @@ function schedule() {
     })
 }
 
-function unschedule() {
+export function unschedule() {
   return Promise.try(() => {
     if (job) job.stop()
   })
-}
-
-export default {
-  schedule,
-  unschedule
 }

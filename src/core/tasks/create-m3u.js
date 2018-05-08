@@ -1,6 +1,6 @@
 import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
-import fs from 'fs'
+import fse from 'fse'
 import path from 'path'
 import flac from 'node-flac'
 import mp3duration from 'mp3-duration'
@@ -8,7 +8,6 @@ import StringToStream from 'string-to-stream'
 import M3UWriter from '../../utils/m3u-writer'
 import meter from 'stream-meter'
 
-Promise.promisifyAll(fs)
 const mp3durationAsync = Promise.promisify(mp3duration)
 
 const { walkman_config_workdir: workdir } = process.env
@@ -81,13 +80,13 @@ function pipe(playlist, m3u) {
       const m = meter()
       const stream = StringToStream(m3u)
         .pipe(m)
-        .pipe(fs.createWriteStream(temppath))
+        .pipe(fse.createWriteStream(temppath))
       stream.on('error', reject)
       stream.on('finish', () => {
         resolve(m.bytes)
       })
     }).then(bytes => {
-      return fs.renameAsync(temppath, m3upath).then(() => {
+      return fse.rename(temppath, m3upath).then(() => {
         return bytes
       })
     })

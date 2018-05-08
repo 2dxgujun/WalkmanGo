@@ -2,12 +2,8 @@ import * as qqmusic from '../../vendor/qqmusic'
 import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import path from 'path'
-import fs from 'fs'
-import mkdirp from 'mkdirp'
+import fse from 'fs-extra'
 import meter from 'stream-meter'
-
-Promise.promisifyAll(fs)
-const mkdirpAsync = Promise.promisify(mkdirp)
 
 const {
   walkman_config_bitrate: bitrate,
@@ -25,7 +21,7 @@ export default function() {
   }).map(
     song => {
       return getAudioPath(song).then(audiopath => {
-        return fs.accessAsync(audiopath).catch(() => {
+        return fs.access(audiopath).catch(() => {
           return pipeAudio(song, audiopath).then(bytes => {
             return markAudio(song, audiopath, bytes)
           })
@@ -81,7 +77,7 @@ function pipeAudio(song, audiopath) {
       if (getTargetSize(song) != bytes) {
         throw new Error('Not match target audio size')
       }
-      return fs.renameAsync(temppath, audiopath).then(() => {
+      return fs.rename(temppath, audiopath).then(() => {
         return bytes
       })
     })
@@ -89,7 +85,7 @@ function pipeAudio(song, audiopath) {
 
 function getAudioPath(song) {
   const audiodir = path.resolve(workdir, 'music')
-  return mkdirpAsync(audiodir).then(() => {
+  return fse.ensureDir(audiodir).then(() => {
     const extname = path.extname(getTargetName(song))
     const songfile = `${song.artists[0].name} - ${song.name}${extname}`
     const audiopath = path.resolve(audiodir, songfile)

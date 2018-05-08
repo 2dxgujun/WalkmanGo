@@ -17,7 +17,7 @@ export default function() {
 
 function updatePlaylists() {
   return qqmusic
-    .getPlaylists(uid)
+    .getPlaylists(uin)
     .filter(playlist => {
       return includes.includes(playlist.name)
     })
@@ -40,6 +40,7 @@ function updatePlaylists() {
 }
 
 function fetchSongs() {
+  // SQLite does not support more than one transaction at the same time
   return Playlist.all().mapSeries(playlist => {
     return qqmusic.getPlaylistSongs(playlist.id).then(songs => {
       return sequelize.transaction(t => {
@@ -49,7 +50,9 @@ function fetchSongs() {
             findOrCreateArtists(song.artists, { transaction: t }),
             (song, artists) => {
               if (artists && artists.length > 0) {
-                return song.setArtists(artists, { transaction: t })
+                return song
+                  .setArtists(artists, { transaction: t })
+                  .then(() => song)
               }
               return song
             }
@@ -63,22 +66,26 @@ function fetchSongs() {
 }
 
 function fetchAlbums() {
-  return Song.all()
-    .filter(song => {
-      return !song.hasAlbum() && song.albumMid
-    })
-    .reduce((accumulator, song, i, length) => {
-      if (length < 10) {
+  return Song.all({
+    where: {
+      album_id: {
+        [Sequelize.Op.eq]: null
+      }
+    }
+  })
+    .filter(song => song.albumMid)
+    .reduce((accumulator, song, i) => {
+      if (i < 10) {
         accumulator.push(song)
       }
       return accumulator
     }, [])
-    .map(song => {
+    .mapSeries(song => {
       return qqmusic.getAlbumInfo(song.albumMid).then(album => {
         return sequelize.transaction(t => {
           return Promise.join(
             findOrCreateAlbum(album, { transaction: t }).spread(i => i),
-            findOrCreateArtist(album.artist, { transaction: t }.spread(i => i)),
+            findOrCreateArtist(album.artist, { transaction: t }).spread(i => i),
             (album, artist) => {
               return Promise.join(
                 album.addSong(song, { transaction: t }),

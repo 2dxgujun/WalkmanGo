@@ -36,7 +36,12 @@ export default function() {
       return Promise.each(playlist.songs, song => {
         const audiofile = path.basename(song.audio.path)
         const url = `${playlist.name}/${audiofile}`
-        const title = `${song.artists[0].name} - ${song.name}`
+        let title
+        if (song.artists && song.artists.length > 0) {
+          title = `${song.artists[0].name} - ${song.name}`
+        } else {
+          title = song.name
+        }
         return getAudioDuration(song).then(duration => {
           writer.file(url, duration, title)
         })
@@ -44,7 +49,7 @@ export default function() {
         .then(() => {
           return writer.toString()
         })
-        .then(m3u=> {
+        .then(m3u => {
           return pipe(playlist, m3u).then(bytes => {
             return mark(playlist, bytes)
           })

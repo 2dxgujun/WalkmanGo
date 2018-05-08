@@ -2,14 +2,20 @@ import * as qqmusic from '../../vendor/qqmusic'
 import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song } from '../../models'
 
+const {
+  walkman_config_uin: uin,
+  walkman_config_playlists: playlists
+} = process.env
+
+const includes = playlists.split(',')
+
 export default function() {
-  return fetchPlaylists().then(fetchSongs)
+  return updatePlaylists()
+    .then(fetchSongs)
+    .then(fetchAlbums)
 }
 
-function fetchPlaylists() {
-  const uid = process.env.walkman_config_uin
-  const includes = process.env.walkman_config_playlists.split(',')
-
+function updatePlaylists() {
   return qqmusic
     .getPlaylists(uid)
     .filter(playlist => {
@@ -32,43 +38,57 @@ function fetchPlaylists() {
       })
     })
 }
-// TODO delay fetch album info
+
 function fetchSongs() {
   return Playlist.all().mapSeries(playlist => {
-    return sequelize.transaction(t => { // TODO transaction only contain sql operation
-      return qqmusic
-        .getPlaylistSongs(playlist.id)
-        .mapSeries(song => {
-          return qqmusic.getAlbumInfo(song.album_mid).then(album => {
-            return Promise.join(
-              findOrCreateSong(song, { transaction: t }).spread(i => i),
-              findOrCreateAlbum(album, { transaction: t }).spread(i => i),
-              findOrCreateArtists(song.artists, { transaction: t }).map(
-                i => i[0]
-              ),
-              findOrCreateArtist(album.artist, { transaction: t }).spread(
-                i => i
-              ),
-              (song, album, songArtists, albumArtist) => {
-                return Promise.join(
-                  album.addSong(song, { transaction: t }),
-                  song.setArtists(songArtists, { transaction: t }),
-                  album.setArtist(albumArtist, { transaction: t }),
-                  () => {
-                    return song
-                  }
-                )
+    return qqmusic.getPlaylistSongs(playlist.id).then(songs => {
+      return sequelize.transaction(t => {
+        return Promise.map(songs, song => {
+          return Promise.join(
+            findOrCreateSong(song, { transaction: t }).spread(i => i),
+            findOrCreateArtists(song.artists, { transaction: t }),
+            (song, artists) => {
+              if (artists && artists.length > 0) {
+                return song.setArtists(artists, { transaction: t })
               }
-            )
-          })
+              return song
+            }
+          )
+        }).then(songs => {
+          return playlist.setSongs(songs, { transaction: t })
         })
-        .then(songs => {
-          return playlist.setSongs(songs, {
-            transaction: t
-          })
-        })
+      })
     })
   })
+}
+
+function fetchAlbums() {
+  return Song.all()
+    .filter(song => {
+      return !song.hasAlbum() && song.albumMid
+    })
+    .reduce((accumulator, song, i, length) => {
+      if (length < 10) {
+        accumulator.push(song)
+      }
+      return accumulator
+    }, [])
+    .map(song => {
+      return qqmusic.getAlbumInfo(song.albumMid).then(album => {
+        return sequelize.transaction(t => {
+          return Promise.join(
+            findOrCreateAlbum(album, { transaction: t }).spread(i => i),
+            findOrCreateArtist(album.artist, { transaction: t }.spread(i => i)),
+            (album, artist) => {
+              return Promise.join(
+                album.addSong(song, { transaction: t }),
+                album.setArtist(artist, { transaction: t })
+              )
+            }
+          )
+        })
+      })
+    })
 }
 
 function findOrCreateSong(song, options) {
@@ -79,6 +99,7 @@ function findOrCreateSong(song, options) {
     defaults: {
       id: song.id,
       mid: song.mid,
+      albumMid: song.album_mid,
       name: song.name,
       size128: song.size128,
       size320: song.size320,
@@ -122,7 +143,7 @@ function findOrCreateArtist(artist, options) {
 
 function findOrCreateArtists(artists, options) {
   return Promise.map(artists, artist => {
-    return findOrCreateArtist(artist, options)
+    return findOrCreateArtist(artist, options).spread(i => i)
   })
 }
 

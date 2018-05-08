@@ -17,6 +17,7 @@ export default function() {
       {
         model: Album,
         as: 'album',
+        required: true,
         include: [
           {
             model: Local,

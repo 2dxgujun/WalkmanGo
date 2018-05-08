@@ -87,7 +87,12 @@ function getAudioPath(song) {
   const audiodir = path.resolve(workdir, 'music')
   return fse.ensureDir(audiodir).then(() => {
     const extname = path.extname(getTargetName(song))
-    const songfile = `${song.artists[0].name} - ${song.name}${extname}`
+    let songfile
+    if (song.artists && song.artists.length > 0) {
+      songfile = `${song.artists[0].name} - ${song.name}${extname}`
+    } else {
+      songfile = `${song.name}${extname}`
+    }
     const audiopath = path.resolve(audiodir, songfile)
     return audiopath
   })

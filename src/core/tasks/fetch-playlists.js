@@ -10,12 +10,12 @@ const {
 const includes = playlists.split(',')
 
 export default function() {
-  return updatePlaylists()
+  return fetchPlaylists()
     .then(fetchSongs)
     .then(fetchAlbums)
 }
 
-function updatePlaylists() {
+function fetchPlaylists() {
   return qqmusic
     .getPlaylists(uin)
     .filter(playlist => {

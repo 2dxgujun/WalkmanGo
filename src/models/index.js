@@ -68,9 +68,6 @@ Album.belongsTo(Artist, {
   as: 'artist'
 })
 
-Playlist.belongsTo(Local, {
-  as: 'url'
-})
 Song.belongsTo(Local, {
   as: 'audio'
 })

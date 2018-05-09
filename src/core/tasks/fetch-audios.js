@@ -86,7 +86,6 @@ function pipeAudio(song, audiopath) {
     })
 }
 
-// TODO name contain /
 function getAudioPath(song) {
   const audiodir = path.resolve(workdir, 'music')
   return fse.ensureDir(audiodir).then(() => {
@@ -97,6 +96,7 @@ function getAudioPath(song) {
     } else {
       songfile = `${song.name}${extname}`
     }
+    songfile = songfile.replace('/', ',')
     const audiopath = path.resolve(audiodir, songfile)
     return audiopath
   })

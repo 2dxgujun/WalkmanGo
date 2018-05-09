@@ -1,4 +1,5 @@
 import fetch from 'node-fetch'
+import HttpError from '../http-error'
 
 export function getPlaylists(uin) {
   return fetch(
@@ -9,7 +10,10 @@ export function getPlaylists(uin) {
       }
     }
   )
-    .then(res => res.json())
+    .then(res => {
+      if (res.ok) return res.json()
+      throw new HttpError(res.status, res.text())
+    })
     .then(result => {
       if (result.code !== 0) {
         throw new Error(result.message)
@@ -33,7 +37,10 @@ export function getPlaylistSongs(playlistId) {
       }
     }
   )
-    .then(res => res.json())
+    .then(res => {
+      if (res.ok) return res.json()
+      throw new HttpError(res.status, res.text())
+    })
     .then(result => {
       if (result.code !== 0) {
         throw new Error(result.message)
@@ -70,7 +77,10 @@ export function getAlbumInfo(albumMid) {
   return fetch(
     `https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg?albummid=${albumMid}&format=json`
   )
-    .then(res => res.json())
+    .then(res => {
+      if (res.ok) return res.json()
+      throw new HttpError(res.status, res.text())
+    })
     .then(result => {
       if (result.code !== 0) {
         throw new Error(result.message)
@@ -98,19 +108,27 @@ export function getAudioStream(filename) {
   return fetch(
     `https://c.y.qq.com/base/fcgi-bin/fcg_musicexpress.fcg?guid=${guid}&format=json`
   )
-    .then(res => res.json())
+    .then(res => {
+      if (res.ok) return res.json()
+      throw new HttpError(res.status, res.text())
+    })
     .then(result => {
-      const url = `${result.sip[0]}${filename}?vkey=${
-        result.key
-      }&guid=${guid}&fromtag=60`
-      return fetch(url).then(res => res.body)
+      return fetch(
+        `${result.sip[0]}${filename}?vkey=${result.key}&guid=${guid}&fromtag=60`
+      ).then(res => {
+        if (res.ok) return res.body
+        throw new HttpError(res.status, res.text())
+      })
     })
 }
 
 export function getAlbumArtStream(albumId) {
   const id = albumId.toString()
-  const sid = id.substr(id.length - 2).replace(/^0+/, '')
+  const sid = parseInt(id.substr(id.length - 2))
   return fetch(
     `https://y.gtimg.cn/music/photo/album_500/${sid}/500_albumpic_${id}_0.jpg`
-  ).then(res => res.body)
+  ).then(res => {
+    if (res.ok) return res.body
+    throw new HttpError(res.status, res.text())
+  })
 }

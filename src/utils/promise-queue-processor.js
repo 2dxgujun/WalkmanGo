@@ -8,11 +8,22 @@ export default class extends Queue {
     this.process = this.process.bind(this)
   }
 
-  push(generator) {
-    return this.add(generator)
+  enqueue(generator, callback) {
+    this.add(generator)
+      .then(() => {
+        if (callback) {
+          callback(null, arguments)
+        }
+      })
+      .catch(err => {
+        if (callback) {
+          callback(err)
+        }
+      })
+    return Promise.resolve()
   }
 
-  process() {
+  run() {
     this.maxPendingPromises = this.concurrency
     while (this._dequeue()) {}
     return Promise.resolve()

@@ -1,34 +1,42 @@
 import { CronJob } from 'cron'
 import queue from './the-queue'
+import Logger from '../utils/logger'
 
 var job = null
 
+const Log = new Logger('ScheduleSync')
+
 function enqueueTasks() {
   const {
-    attach_album_art,
-    fetch_playlists,
-    fetch_audios,
-    fetch_album_art
+    attachAlbumArt,
+    fetchPlaylists,
+    fetchAudios,
+    fetchAlbumArt
   } = require('./tasks')
 
-  queue
-    .add(() => {
-      return fetch_playlists()
-        .then(fetch_audio)
-        .then(fetch_album_art)
-        .then(attach_album_art)
-    })
-    .catch(err => {
-      console.error(err)
-    })
+  Log.d('Enqueue tasks')
+  queue.add(fetchPlaylists).catch(err => {
+    Log.e('Uncaught error when fetch playlists', err)
+  })
+  queue.add(fetchAudios).catch(err => {
+    Log.e('Uncaught error when fetch audios', err)
+  })
+  queue.add(fetchAlbumArt).catch(err => {
+    Log.e('Uncaught error when fetch album art', err)
+  })
+  queue.add(attachAlbumArt).catch(err => {
+    Log.e('Uncaught error when attach album art', err)
+  })
 }
 
 export function schedule() {
   if (job) {
+    Log.d('Re schedule')
     return Promise.try(() => {
       job.start()
     })
   }
+  Log.d('Schedule')
 
   const sequelize = require('../models').default
   return sequelize
@@ -51,6 +59,7 @@ export function schedule() {
 }
 
 export function unschedule() {
+  Log.d('Unschedule')
   return Promise.try(() => {
     if (job) job.stop()
   })

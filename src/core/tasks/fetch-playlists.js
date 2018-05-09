@@ -1,11 +1,14 @@
 import * as qqmusic from '../../vendor/qqmusic'
 import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song } from '../../models'
+import Logger from '../utils/logger'
 
 const {
   walkman_config_uin: uin,
   walkman_config_playlists: playlists
 } = process.env
+
+const Log = new Logger('fetch playlists')
 
 const includes = playlists.split(',')
 
@@ -16,12 +19,18 @@ export default function() {
 }
 
 function fetchPlaylists() {
+  Log.d('Start fetch playlists')
   return qqmusic
     .getPlaylists(uin)
+    .then(playlists => {
+      Log.d('List of online playlists: ' + playlists.map(p => p.name).join())
+      return playlists
+    })
     .filter(playlist => {
       return includes.includes(playlist.name)
     })
     .then(playlists => {
+      Log.d('List of playlists for sync: ' + playlists.map(p => p.name).join())
       return sequelize.transaction(t => {
         return Playlist.destroy({
           where: {

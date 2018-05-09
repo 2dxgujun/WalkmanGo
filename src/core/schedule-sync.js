@@ -8,21 +8,15 @@ function enqueueTasks() {
     attach_album_art,
     fetch_playlists,
     fetch_audios,
-    fetch_album_art,
-    create_m3u
+    fetch_album_art
   } = require('./tasks')
 
   queue
     .add(() => {
       return fetch_playlists()
-        .catch(err => {
-          //
-          throw err
-        })
         .then(fetch_audio)
         .then(fetch_album_art)
         .then(attach_album_art)
-        .then(create_m3u)
     })
     .catch(err => {
       console.error(err)

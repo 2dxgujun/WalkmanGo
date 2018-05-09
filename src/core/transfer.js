@@ -16,7 +16,7 @@ function run() {
   if (isCanceled) {
     return Promise.resolve()
   } else {
-    const { transfer_playlists } = require('./tasks')
-    return transfer_playlists()
+    const { transfer_audios, create_playlists } = require('./tasks')
+    return transfer_playlists().then(create_playlists)
   }
 }

@@ -4,10 +4,28 @@ import fse from 'fs-extra'
 import flac from 'node-flac'
 import id3 from 'node-id3'
 import sharp from 'sharp'
+import Op from './op'
+import ProcessQueue from '../../utils/promise-queue-processor'
 
 Promise.promisifyAll(id3)
 
+class AttachAlbumArt extends Op {
+  constructor(song) {
+    super('ATTACH_ALBUM_ART')
+    this.song = song
+  }
+
+  execute() {
+    return attachAlbumArt(this.song)
+  }
+}
+
 export default function() {
+  return prepare().then(run)
+}
+
+function prepare() {
+  const queue = new ProcessQueue(4)
   return Song.all({
     include: [
       {
@@ -26,29 +44,43 @@ export default function() {
         ]
       }
     ]
-  }).map(
-    song => {
-      return isAlbumArtAttached(song).then(attached => {
-        if (!attached) {
-          return attach(song)
-        }
-      })
-    },
-    { concurrency: 4 }
-  )
+  }).map(song => {
+    return isAlbumArtAttached(song).then(attached => {
+      if (!attached) {
+        return queue.enqueue(attach(song), err => {
+          if (err) {
+            Log.e('Attach album art error', err)
+            return
+          }
+          Log.d(`Attach album art succeed`)
+        })
+      }
+    })
+  })
+}
+
+function run(queue) {
+  return queue.run()
 }
 
 function attach(song) {
+  return () => {
+    Log.d('Start attaching album art: ' + song.name)
+    return new AttachAlbumArt(song).execute()
+  }
+}
+
+function attachAlbumArt(song) {
   if (song.audio.mimeType === 'audio/flac') {
-    return attach_flac(song)
+    return attachAlbumArtFlac(song)
   } else if (song.audio.mimeType === 'audio/mp3') {
-    return attach_mp3(song)
+    return attachAlbumArtMp3(song)
   } else {
     throw new Error('Unknown audio format')
   }
 }
 
-function attach_flac(song) {
+function attachAlbumArtFlac(song) {
   return flac.metadata_object
     .new(flac.format.MetadataType['PICTURE'])
     .then(obj => {
@@ -90,7 +122,7 @@ function attach_flac(song) {
     })
 }
 
-function attach_mp3(song) {
+function attachAlbumArtMp3(song) {
   return id3.update(
     {
       image: song.album.art.path
@@ -109,7 +141,7 @@ function isAlbumArtAttached(song) {
   }
 }
 
-function isAlbumArtAttached_mp3(song) {
+function isAlbumArtAttachedMp3(song) {
   return id3.readAsync(song.audio.path).then(tags => {
     if (tags['image']) {
       return true
@@ -118,7 +150,7 @@ function isAlbumArtAttached_mp3(song) {
   })
 }
 
-function isAlbumArtAttached_flac(song) {
+function isAlbumArtAttachedFlac(song) {
   return flac.metadata.new().then(it => {
     return flac.metadata.init(it, song.audio.path, true, false).then(() => {
       function isPictureBlockExistsRecursive(it) {

@@ -5,9 +5,9 @@ import Bluebird from 'bluebird'
 import program from 'commander'
 import Logger from './utils/logger'
 
-import { schedule as schedule_sync } from './core/schedule-sync'
-import init_detection from './core/init-detection'
-import configure_log from './core/configure-log'
+import { schedule as scheduleSync } from './core/schedule-sync'
+import initDetection from './core/init-detection'
+import configureLogger from './core/configure-logger'
 
 global.Promise = Bluebird
 
@@ -26,7 +26,11 @@ function setup(config) {
   process.env.walkman_config_bitrate = bitrate
   process.env.walkman_config_uin = uin
   process.env.walkman_config_playlists = playlists
-  return Promise.join(fse.ensureDir(workdir), fse.ensureDir(logdir))
+  return Promise.join(
+    fse.ensureDir(workdir),
+    fse.ensureDir(logdir),
+    configureLogger()
+  )
 }
 
 program
@@ -38,9 +42,8 @@ fse
   .readFile(program.config || './walkman.ini', 'utf-8')
   .then(ini.parse)
   .then(setup)
-  .then(configure_log)
-  .then(schedule_sync)
-  .then(init_detection)
+  .then(scheduleSync)
+  .then(initDetection)
   .catch(err => {
     console.log(err.message)
     process.exit(1)

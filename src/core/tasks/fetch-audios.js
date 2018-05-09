@@ -4,13 +4,52 @@ import sequelize, { Artist, Playlist, Song, Local } from '../../models'
 import path from 'path'
 import fse from 'fs-extra'
 import meter from 'stream-meter'
+import Op from './op'
+import ProcessQueue from '../../utils/promise-queue-processor'
 
 const {
   walkman_config_bitrate: bitrate,
   walkman_config_workdir: workdir
 } = process.env
 
+class DownloadSong extends Op {
+  constructor(song) {
+    super('DOWNLOAD_SONG')
+    this.song = song
+  }
+
+  execute() {
+    return getAudioPath(this.song).then(audiopath => {
+      const tmppath = `${audiopath}.tmp`
+      return qqmusic
+        .getAudioStream(getTargetName(song))
+        .then(source => {
+          return new Promise((resolve, reject) => {
+            const m = meter()
+            const stream = source.pipe(m).pipe(fse.createWriteStream(temppath))
+            source.on('error', reject)
+            stream.on('error', reject)
+            stream.on('finish', () => {
+              resolve(m.bytes)
+            })
+          })
+        })
+        .then(bytes => {
+          if (getTargetSize(song) != bytes) {
+            throw new Error('Not match target audio size')
+          }
+          return fse.rename(tmppath, audiopath).return(bytes)
+        })
+    })
+  }
+}
+
 export default function() {
+  return prepare().then(run)
+}
+
+function prepare() {
+  const queue = new ProcessQueue(4)
   return Song.all({
     include: [
       {
@@ -18,20 +57,35 @@ export default function() {
         as: 'artists'
       }
     ]
-  }).map(
-    song => {
-      return getAudioPath(song).then(audiopath => {
-        return fse.pathExists(audiopath).then(exists => {
-          if (!exists) {
-            return pipeAudio(song, audiopath).then(bytes => {
-              return markAudio(song, audiopath, bytes)
+  }).map(song => {
+    return getAudioPath(song).then(audiopath => {
+      return fse.pathExists(audiopath).then(exists => {
+        if (!exists) {
+          return queue.enqueue(download(song), (err, bytes) => {
+            if (err) {
+              Log.e('Download error', err)
+              return
+            }
+            Log.d('Download succeed ' + song.name)
+            markAudio(song, audiopath, bytes).catch(err => {
+              Log.e(`Mark ${song.name} failed`, err)
             })
-          }
-        })
+          })
+        }
       })
-    },
-    { concurrency: 4 }
-  )
+    })
+  })
+}
+
+function run(queue) {
+  return queue.run()
+}
+
+function download(song) {
+  return () => {
+    Log.d('Start downloading ' + song.name)
+    return new DownloadSong(song).execute()
+  }
 }
 
 function getMimeType(audiopath) {
@@ -58,32 +112,6 @@ function markAudio(song, audiopath, bytes) {
       return song.setAudio(audio, { transaction: t })
     })
   })
-}
-
-function pipeAudio(song, audiopath) {
-  const temppath = `${audiopath}.temp`
-  console.log(song.name)
-  return qqmusic
-    .getAudioStream(getTargetName(song))
-    .then(source => {
-      return new Promise((resolve, reject) => {
-        const m = meter()
-        const stream = source.pipe(m).pipe(fse.createWriteStream(temppath))
-        source.on('error', reject)
-        stream.on('error', reject)
-        stream.on('finish', () => {
-          resolve(m.bytes)
-        })
-      })
-    })
-    .then(bytes => {
-      if (getTargetSize(song) != bytes) {
-        throw new Error('Not match target audio size')
-      }
-      return fse.rename(temppath, audiopath).then(() => {
-        return bytes
-      })
-    })
 }
 
 function getAudioPath(song) {

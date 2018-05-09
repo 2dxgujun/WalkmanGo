@@ -3,7 +3,7 @@ import log4js from 'log4js'
 const { walkman_config_logdir: logdir } = process.env
 
 export default function() {
-  log4js.configure({
+  return log4js.configure({
     appenders: {
       console: {
         type: 'console'

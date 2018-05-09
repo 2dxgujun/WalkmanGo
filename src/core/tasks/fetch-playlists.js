@@ -23,33 +23,43 @@ function fetchPlaylists() {
   return qqmusic
     .getPlaylists(uin)
     .then(playlists => {
-      Log.d('List of online playlists: ' + playlists.map(p => p.name).join())
+      Log.d('List of remote playlists: ' + playlists.map(p => p.name).join())
       return playlists
     })
     .filter(playlist => {
       return includes.includes(playlist.name)
     })
     .then(playlists => {
-      Log.d('List of playlists for sync: ' + playlists.map(p => p.name).join())
-      return sequelize.transaction(t => {
-        return Playlist.destroy({
-          where: {
-            id: {
-              [Sequelize.Op.notIn]: playlists.map(it => it.id)
-            }
-          },
-          transaction: t
-        }).then(() => {
-          return Promise.map(playlists, playlist => {
-            return findThenCreateOrUpdatePlaylist(playlist, { transaction: t })
+      Log.d('List of playlists will sync: ' + playlists.map(p => p.name).join())
+      return Playlist.findAll({
+        where: {
+          id: {
+            [Sequelize.Op.notIn]: playlists.map(it => it.id)
+          }
+        }
+      })
+        .then(playlists => {
+          Log.d(
+            'List of playlists will delete: ' +
+              playlists.map(p => p.name).join()
+          )
+          return Promise.map(playlists, playlist => destroy)
+        })
+        .then(() => {
+          return sequelize.transaction(t => {
+            return Promise.map(playlists, playlist => {
+              return findThenCreateOrUpdatePlaylist(playlist, {
+                transaction: t
+              })
+            })
           })
         })
-      })
     })
 }
 
 function fetchSongs() {
   // SQLite does not support more than one transaction at the same time
+  Log.d('Start fetch songs')
   return Playlist.all().mapSeries(playlist => {
     return qqmusic.getPlaylistSongs(playlist.id).then(songs => {
       return sequelize.transaction(t => {
@@ -70,9 +80,7 @@ function fetchSongs() {
                     return song.setArtists(artists, { transaction: t })
                   }
                 })
-                .then(() => {
-                  return song
-                })
+                .return(song)
             }
           )
         }).then(songs => {
@@ -91,6 +99,7 @@ function findOrCreateAlbumIfPresent(album, options) {
 }
 
 function fetchAlbums() {
+  Log.d('Start fetch albums')
   return Album.all({
     where: {
       name: {

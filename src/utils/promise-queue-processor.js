@@ -4,8 +4,9 @@ export default class extends Queue {
   constructor(concurrency) {
     super(0, Infinity)
     this.concurrency = concurrency
-    this.push = this.push.bind(this)
-    this.process = this.process.bind(this)
+    this.enqueue = this.enqueue.bind(this)
+    this.run = this.run.bind(this)
+    this.pending = null
   }
 
   enqueue(generator, callback) {
@@ -20,12 +21,20 @@ export default class extends Queue {
           callback(err)
         }
       })
+      .then(() => {
+        if (this.pending && this.pendingPromises == 0) {
+          this.resolve()
+        }
+      })
     return Promise.resolve()
   }
 
   run() {
     this.maxPendingPromises = this.concurrency
     while (this._dequeue()) {}
-    return Promise.resolve()
+    this.pending = new Promise((resolve, reject) => {
+      this.resolve = resolve
+    })
+    return this.pending
   }
 }

@@ -2,7 +2,7 @@ var Processor = require('../src/utils/promise-queue-processor').default
 
 var queue = new Processor(4)
 
-queue.push(() => {
+queue.enqueue(() => {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       console.log(1)
@@ -10,7 +10,7 @@ queue.push(() => {
     }, 1000)
   })
 })
-queue.push(() => {
+queue.enqueue(() => {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       console.log(2)
@@ -18,7 +18,7 @@ queue.push(() => {
     }, 3000)
   })
 })
-queue.push(() => {
+queue.enqueue(() => {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       console.log(3)
@@ -26,7 +26,7 @@ queue.push(() => {
     }, 500)
   })
 })
-queue.push(() => {
+queue.enqueue(() => {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       console.log(4)
@@ -35,6 +35,10 @@ queue.push(() => {
   })
 })
 
-setTimeout(queue.process, 1000)
+setTimeout(() => {
+  queue.run().then(() => {
+    console.log('NICE')
+  })
+}, 1000)
 
 setTimeout(() => {}, 100000)

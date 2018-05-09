@@ -4,7 +4,6 @@ import transfer_audios from './transfer-audios'
 import fetch_playlists from './fetch-playlists'
 import fetch_album_art from './fetch-album-art'
 import fetch_audios from './fetch-audios'
-import create_m3u from './create-m3u'
 
 export {
   attach_album_art,
@@ -12,6 +11,5 @@ export {
   transfer_audios,
   fetch_playlists,
   fetch_album_art,
-  fetch_audios,
-  create_m3u
+  fetch_audios
 }

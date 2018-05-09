@@ -12,21 +12,21 @@ function enqueueTasks() {
     create_m3u
   } = require('./tasks')
 
-  queue.add(fetch_playlists).catch(err => {
+  //queue.add(fetch_playlists).catch(err => {
+  //  console.error(err)
+  //})
+  queue.add(fetch_audios).catch(err => {
     console.error(err)
   })
-  //queue.add(fetch_audios).catch(err => {
-  //  console.error(err)
-  //})
-  //queue.add(fetch_album_art).catch(err => {
-  //  console.error(err)
-  //})
-  //queue.add(attach_album_art).catch(err => {
-  //  console.error(err)
-  //})
-  //queue.add(create_m3u).catch(err => {
-  //  console.error(err)
-  //})
+  queue.add(fetch_album_art).catch(err => {
+    console.error(err)
+  })
+  queue.add(attach_album_art).catch(err => {
+    console.error(err)
+  })
+  queue.add(create_m3u).catch(err => {
+    console.error(err)
+  })
 }
 
 export function schedule() {

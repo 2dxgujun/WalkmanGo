@@ -9,20 +9,15 @@ import meter from 'stream-meter'
 const { walkman_config_workdir: workdir } = process.env
 
 export default function() {
-  return Album.all({
-    include: [
-      {
-        model: Artist,
-        as: 'artist'
-      }
-    ]
-  }).map(
+  return Album.all().map(
     album => {
       return getAlbumArtPath(album).then(artpath => {
-        return fse.access(artpath).catch(() => {
-          return pipeArt(album, artpath).then(bytes => {
-            return markArt(album, artpath, bytes)
-          })
+        return fse.pathExists(artpath).then(exists => {
+          if (!exists) {
+            return pipeArt(album, artpath).then(bytes => {
+              return markArt(album, artpath, bytes)
+            })
+          }
         })
       })
     },
@@ -86,7 +81,7 @@ function pipeArt(album, artpath) {
 function getAlbumArtPath(album) {
   const artdir = path.resolve(workdir, 'art')
   return fse.ensureDir(artdir).then(() => {
-    const artfile = `${album.artist.name} - ${album.name}.jpeg`
+    const artfile = `${album.mid}.jpeg`
     const artpath = path.resolve(artdir, artfile)
     return artpath
   })

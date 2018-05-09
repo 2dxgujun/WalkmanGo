@@ -15,12 +15,12 @@ export default function(sequelize, DataTypes) {
       },
       name: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
         field: 'name'
       },
       songCount: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
         field: 'song_cnt'
       },
       releaseDate: {

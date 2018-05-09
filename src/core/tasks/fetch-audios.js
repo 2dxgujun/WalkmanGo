@@ -1,6 +1,6 @@
 import * as qqmusic from '../../vendor/qqmusic'
 import Sequelize from 'sequelize'
-import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
+import sequelize, { Artist, Playlist, Song, Local } from '../../models'
 import path from 'path'
 import fse from 'fs-extra'
 import meter from 'stream-meter'
@@ -21,10 +21,12 @@ export default function() {
   }).map(
     song => {
       return getAudioPath(song).then(audiopath => {
-        return fse.access(audiopath).catch(() => {
-          return pipeAudio(song, audiopath).then(bytes => {
-            return markAudio(song, audiopath, bytes)
-          })
+        return fse.pathExists(audiopath).then(exists => {
+          if (!exists) {
+            return pipeAudio(song, audiopath).then(bytes => {
+              return markAudio(song, audiopath, bytes)
+            })
+          }
         })
       })
     },
@@ -60,6 +62,7 @@ function markAudio(song, audiopath, bytes) {
 
 function pipeAudio(song, audiopath) {
   const temppath = `${audiopath}.temp`
+  console.log(song.name)
   return qqmusic
     .getAudioStream(getTargetName(song))
     .then(source => {
@@ -83,6 +86,7 @@ function pipeAudio(song, audiopath) {
     })
 }
 
+// TODO name contain /
 function getAudioPath(song) {
   const audiodir = path.resolve(workdir, 'music')
   return fse.ensureDir(audiodir).then(() => {

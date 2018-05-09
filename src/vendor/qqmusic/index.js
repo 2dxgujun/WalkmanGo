@@ -43,8 +43,10 @@ export function getPlaylistSongs(playlistId) {
           id: song.songid,
           mid: song.strMediaMid,
           name: song.songname,
-          album_id: song.albumid, // may be 0
-          album_mid: song.albummid, // may be ''
+          album: {
+            id: song.albumid, // may be 0
+            mid: song.albummid // may be ''
+          },
           artists: song.singer // may be []
             .filter(singer => {
               return singer.id && singer.mid && singer.name

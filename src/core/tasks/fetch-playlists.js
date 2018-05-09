@@ -47,14 +47,23 @@ function fetchSongs() {
         return Promise.map(songs, song => {
           return Promise.join(
             findOrCreateSong(song, { transaction: t }).spread(i => i),
+            findOrCreateAlbumIfPresent(song.album, { transaction: t }),
             findOrCreateArtists(song.artists, { transaction: t }),
-            (song, artists) => {
-              if (artists && artists.length > 0) {
-                return song
-                  .setArtists(artists, { transaction: t })
-                  .then(() => song)
-              }
-              return song
+            (song, album, artists) => {
+              return Promise.resolve(album)
+                .then(album => {
+                  if (album) {
+                    return album.addSong(song, { transaction: t })
+                  }
+                })
+                .then(() => {
+                  if (artists && artists.length > 0) {
+                    return song.setArtists(artists, { transaction: t })
+                  }
+                })
+                .then(() => {
+                  return song
+                })
             }
           )
         }).then(songs => {
@@ -65,32 +74,37 @@ function fetchSongs() {
   })
 }
 
+function findOrCreateAlbumIfPresent(album, options) {
+  if (album.id && album.mid) {
+    return findOrCreateAlbum(album, options).spread(i => i)
+  }
+  return null
+}
+
 function fetchAlbums() {
-  return Song.all({
+  return Album.all({
     where: {
-      album_id: {
+      name: {
         [Sequelize.Op.eq]: null
       }
     }
   })
-    .filter(song => song.albumMid)
-    .reduce((accumulator, song, i) => {
+    .reduce((accumulator, album, i) => {
       if (i < 10) {
-        accumulator.push(song)
+        accumulator.push(album)
       }
       return accumulator
     }, [])
-    .mapSeries(song => {
-      return qqmusic.getAlbumInfo(song.albumMid).then(album => {
+    .mapSeries(album => {
+      return qqmusic.getAlbumInfo(album.mid).then(album => {
         return sequelize.transaction(t => {
           return Promise.join(
-            findOrCreateAlbum(album, { transaction: t }).spread(i => i),
+            findThenUpdateOrCreateAlbum(album, { transaction: t }).spread(
+              i => i
+            ),
             findOrCreateArtist(album.artist, { transaction: t }).spread(i => i),
             (album, artist) => {
-              return Promise.join(
-                album.addSong(song, { transaction: t }),
-                album.setArtist(artist, { transaction: t })
-              )
+              return album.setArtist(artist, { transaction: t })
             }
           )
         })
@@ -134,6 +148,24 @@ function findOrCreateAlbum(album, options) {
   })
 }
 
+function findThenUpdateOrCreateAlbum(album, options) {
+  return findOrCreateAlbum(album, options).spread((instance, created) => {
+    if (created) return [instance, created]
+    return instance
+      .update(
+        {
+          name: album.name,
+          songCount: album.song_cnt,
+          releaseDate: album.release_date,
+          language: album.language,
+          genre: album.genre
+        },
+        options
+      )
+      .then(instance => [instance, created])
+  })
+}
+
 function findOrCreateArtist(artist, options) {
   return Artist.findOrCreate({
     where: {
@@ -170,13 +202,15 @@ function findOrCreatePlaylist(playlist, options) {
 
 function findThenCreateOrUpdatePlaylist(playlist, options) {
   return findOrCreatePlaylist(playlist, options).spread((instance, created) => {
-    if (created) return instance
-    return instance.update(
-      {
-        name: playlist.name,
-        songCount: playlist.song_cnt
-      },
-      options
-    )
+    if (created) return [instance, created]
+    return instance
+      .update(
+        {
+          name: playlist.name,
+          songCount: playlist.song_cnt
+        },
+        options
+      )
+      .then(instance => [instance, created])
   })
 }

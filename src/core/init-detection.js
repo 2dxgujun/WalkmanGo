@@ -8,7 +8,7 @@ import {
 export default function() {
   detect(
     (err, device) => {
-      return unscheduleSync()
+      return unscheduleSync() // TODO
         .then(transfer)
         .then(scheduleSync)
     },

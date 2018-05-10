@@ -57,7 +57,7 @@ function prepareCopySongs(processor, mountpoint) {
 
 function prepareRemoveSongs(processor, mountpoint) {
   return findAllPlaylists().then(playlists => {
-    return walkmanPath.getWalkmanGoPath(mountpoint).then(walkmanGoPath => {
+    return getWalkmanGoPath(mountpoint).then(walkmanGoPath => {
       return fse.readdir(walkmanGoPath).map(playlistDir => {
         const playlist = playlists.find(playlist => {
           return playlist.name === playlistDir
@@ -120,7 +120,6 @@ function findAllPlaylists() {
 }
 
 function copy(src, dest) {
-  const { src, dest } = this
   const tmppath = `${dest}.tmp`
   return fse.copy(src, tmppath).then(() => {
     return fse.rename(tmppath, dest)

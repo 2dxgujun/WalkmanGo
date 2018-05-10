@@ -43,7 +43,7 @@ function prepare() {
     .map(song => {
       if (song.audio && song.album && song.album.art) {
         return isAlbumArtAdded(song).then(added => {
-          if (!add) {
+          if (!added) {
             return prepareAddAlbumArt(processor, song)
           }
         })

@@ -154,11 +154,11 @@ function getMimeType(audiopath) {
 function toString(song) {
   let result
   if (song.artists && song.artists.length > 0) {
-    result = `${song.artists[0].name} - ${song.name}${extname}`
+    result = `${song.artists[0].name} - ${song.name}`
   } else {
-    result = `${song.name}${extname}`
+    result = `${song.name}`
   }
-  result = result + ` (${getTargetSize(song)})`
+  result = result + ` (${getTargetSize(song)})` // TODO
   return result
 }
 

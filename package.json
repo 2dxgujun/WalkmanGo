@@ -34,6 +34,7 @@
     "sqlite3": "^4.0.0",
     "stream-meter": "^1.0.4",
     "string-to-stream": "^1.1.1",
+    "untildify": "^3.0.2",
     "usb-detection": "^2.1.0"
   },
   "devDependencies": {

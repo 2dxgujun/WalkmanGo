@@ -7,27 +7,23 @@ var job = null
 const Log = new Logger('schedule sync')
 
 function enqueueTasks() {
-  const {
-    attachAlbumArt,
-    fetchPlaylists,
-    fetchAudios,
-    fetchAlbumArt
-  } = require('./tasks')
-  
-  // TODO Only enqueue if currently not pending
+  if (queue.getPendingLength() > 0) {
+    Log.d('Current have pending promises, nothing enqueued')
+    return
+  }
   Log.d('Enqueue tasks')
-  //queue.add(fetchPlaylists).catch(err => {
-  //  Log.e('Uncaught error when fetch playlists', err)
-  //})
-  //queue.add(fetchAudios).catch(err => {
-  //  Log.e('Uncaught error when fetch audios', err)
-  //})
-  queue.add(fetchAlbumArt).catch(err => {
-    Log.e('Uncaught error when fetch album art', err)
-  })
-  queue.add(attachAlbumArt).catch(err => {
-    Log.e('Uncaught error when attach album art', err)
-  })
+
+  const {
+    addAlbumArt,
+    fetchPlaylists,
+    downloadSongs,
+    downloadAlbumArt
+  } = require('./tasks')
+
+  //queue.add(fetchPlaylists)
+  //queue.add(downloadSongs)
+  queue.add(downloadAlbumArt)
+  queue.add(addAlbumArt)
 }
 
 export function schedule() {

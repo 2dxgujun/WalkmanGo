@@ -1,7 +1,10 @@
 import Queue from 'promise-queue'
 import os from 'os'
+import Logger from './logger'
 
 const numCPUs = os.cpus().length
+
+const Log = new Logger('Processor')
 
 export default class Processor extends Queue {
   static create() {
@@ -23,26 +26,17 @@ export default class Processor extends Queue {
   }
 
   add(generator) {
-    return new Promise((resolve, reject) => {
-      super
-        .add(() => {
-          return Promise.try(() => {
-            const value = generator()
-            if (value && typeof value.then === 'function') {
-              return value
-            }
-            return Promise.resolve(value)
-          })
-            .then(resolve)
-            .catch(reject)
-        })
-        .then(() => {
-          // this.add will always fulfilled
-          if (this.pending && this.pendingPromises == 0) {
-            this.resolve()
-          }
-        })
-    })
+    super
+      .add(generator)
+      .catch(err => {
+        Log.e('Uncaught Error in processor: ', err)
+      })
+      .then(() => {
+        if (this.pending && this.pendingPromises == 0) {
+          this.resolve()
+        }
+      })
+    return Promise.resolve()
   }
 
   run() {

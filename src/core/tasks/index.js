@@ -1,15 +1,15 @@
-import attachAlbumArt from './attach-album-art'
+import addAlbumArt from './add-album-art'
 import createPlaylists from './create-playlists'
-import transferAudios from './transfer-audios'
+import transferSongs from './transfer-songs'
 import fetchPlaylists from './fetch-playlists'
-import fetchAlbumArt from './fetch-album-art'
-import fetchAudios from './fetch-audios'
+import downloadAlbumArt from './download-album-art'
+import downloadSongs from './download-songs'
 
 export {
-  attachAlbumArt,
+  addAlbumArt,
   createPlaylists,
-  transferAudios,
+  transferSongs,
   fetchPlaylists,
-  fetchAlbumArt,
-  fetchAudios
+  downloadAlbumArt,
+  downloadSongs
 }

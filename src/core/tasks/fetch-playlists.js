@@ -8,18 +8,24 @@ const {
   walkman_config_playlists: playlists
 } = process.env
 
-const Log = new Logger('fetch playlists')
+const Log = new Logger('FETCH')
 
 const includes = playlists.split(',')
 
 export default function() {
+  Log.d('Start fetch playlists')
   return fetchPlaylists()
     .then(fetchSongs)
     .then(fetchAlbums)
+    .then(() => {
+      Log.d('Done fetch playlists')
+    })
+    .catch(err => {
+      Log.e('Uncaught Error when fetch playlists: ', err)
+    })
 }
 
 function fetchPlaylists() {
-  Log.d('Start fetch playlists')
   return qqmusic
     .getPlaylists(uin)
     .then(playlists => {
@@ -39,10 +45,12 @@ function fetchPlaylists() {
         }
       })
         .then(playlists => {
-          Log.d(
-            'List of playlists will delete: ' +
-              playlists.map(p => p.name).join()
-          )
+          if (playlists && playlists.length > 0) {
+            Log.d(
+              'List of playlists will delete: ' +
+                playlists.map(p => p.name).join()
+            )
+          }
           return Promise.map(playlists, playlist => destroy)
         })
         .then(() => {
@@ -58,8 +66,6 @@ function fetchPlaylists() {
 }
 
 function fetchSongs() {
-  // SQLite does not support more than one transaction at the same time
-  Log.d('Start fetch songs')
   return Playlist.all().mapSeries(playlist => {
     return qqmusic.getPlaylistSongs(playlist.id).then(songs => {
       return sequelize.transaction(t => {
@@ -99,7 +105,6 @@ function findOrCreateAlbumIfPresent(album, options) {
 }
 
 function fetchAlbums() {
-  Log.d('Start fetch albums')
   return Album.all({
     where: {
       name: {

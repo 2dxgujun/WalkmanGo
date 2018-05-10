@@ -13,15 +13,16 @@ const { walkman_config_workdir: workdir } = process.env
 const Log = new Logger('DOWNLOAD')
 
 export default function() {
-  Log.d('Start download album arts')
-  return prepare().then(run)
-  .catch(err => {
-    return Log.e('Uncaught Error when download album arts', err)
-  })
+  Log.d('Start download album art')
+  return prepare()
+    .then(run)
+    .catch(err => {
+      return Log.e('Uncaught Error when download album art', err)
+    })
 }
 
 function prepare() {
-  const processor = new Processor()
+  const processor = Processor.create()
   return Album.all()
     .map(album => {
       return getAlbumArtPath(album).then(artpath => {

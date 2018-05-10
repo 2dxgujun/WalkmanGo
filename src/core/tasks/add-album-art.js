@@ -9,14 +9,19 @@ import Logger from '../../utils/logger'
 
 Promise.promisifyAll(id3)
 
-const Log = new Logger('attach album art')
+const Log = new Logger('ADD_ALBUM_ART')
 
 export default function() {
-  return prepare().then(run)
+  Log.d('Start add album art')
+  return prepare()
+    .then(run)
+    .catch(err => {
+      return Log.e('Uncaught Error when add album art', err)
+    })
 }
 
 function prepare() {
-  const processor = new Processor()
+  const processor = Processor.create()
   return Song.all({
     include: [
       {
@@ -26,7 +31,6 @@ function prepare() {
       {
         model: Album,
         as: 'album',
-        required: true,
         include: [
           {
             model: Local,
@@ -38,9 +42,9 @@ function prepare() {
   })
     .map(song => {
       if (song.audio && song.album && song.album.art) {
-        return isAlbumArtAttached(song).then(attached => {
-          if (!attached) {
-            prepareAttachAlbumArt(song)
+        return isAlbumArtAdded(song).then(added => {
+          if (!add) {
+            return prepareAddAlbumArt(processor, song)
           }
         })
       }
@@ -52,29 +56,25 @@ function run(processor) {
   return processor.run()
 }
 
-function prepareAttachAlbumArt(processor, song) {
-  processor.add(() => {
-    return attachAlbumArt(song)
-      .then(() => {
-        Log.d('Attach album art succeed')
-      })
-      .catch(err => {
-        Log.e('Attach album art failed', err)
-      })
+function prepareAddAlbumArt(processor, song) {
+  return processor.add(() => {
+    return addAlbumArt(song).catch(err => {
+      Log.e(`Add album art failed: ${song.name}`, err)
+    })
   })
 }
 
-function attachAlbumArt(song) {
+function addAlbumArt(song) {
   if (song.audio.mimeType === 'audio/flac') {
-    return attachAlbumArtFlac(song)
+    return addAlbumArtFlac(song)
   } else if (song.audio.mimeType === 'audio/mp3') {
-    return attachAlbumArtMp3(song)
+    return addAlbumArtMp3(song)
   } else {
     throw new Error('Unknown audio format')
   }
 }
 
-function attachAlbumArtFlac(song) {
+function addAlbumArtFlac(song) {
   return flac.metadata_object
     .new(flac.format.MetadataType['PICTURE'])
     .then(obj => {
@@ -100,10 +100,9 @@ function attachAlbumArtFlac(song) {
           obj.data.depth = metadata.channels * 8 // 8 bit depth
         })
         .then(() => {
-          return flac.metadata_object.picture_is_legal(obj).then(() => {
-            return obj
-          })
+          return flac.metadata_object.picture_is_legal(obj)
         })
+        .return(obj)
     })
     .then(picture => {
       return flac.metadata.new().then(it => {
@@ -116,8 +115,8 @@ function attachAlbumArtFlac(song) {
     })
 }
 
-function attachAlbumArtMp3(song) {
-  return id3.update(
+function addAlbumArtMp3(song) {
+  return id3.updateAsync(
     {
       image: song.album.art.path
     },
@@ -125,17 +124,17 @@ function attachAlbumArtMp3(song) {
   )
 }
 
-function isAlbumArtAttached(song) {
+function isAlbumArtAdded(song) {
   if (song.audio.mimeType === 'audio/flac') {
-    return isAlbumArtAttachedFlac(song)
+    return isAlbumArtAddedFlac(song)
   } else if (song.audio.mimeType === 'audio/mp3') {
-    return isAlbumArtAttachedMp3(song)
+    return isAlbumArtAddedMp3(song)
   } else {
     throw new Error('Unknown audio format')
   }
 }
 
-function isAlbumArtAttachedMp3(song) {
+function isAlbumArtAddedMp3(song) {
   return id3.readAsync(song.audio.path).then(tags => {
     if (tags['image']) {
       return true
@@ -144,7 +143,7 @@ function isAlbumArtAttachedMp3(song) {
   })
 }
 
-function isAlbumArtAttachedFlac(song) {
+function isAlbumArtAddedFlac(song) {
   return flac.metadata.new().then(it => {
     return flac.metadata.init(it, song.audio.path, true, false).then(() => {
       function isPictureBlockExistsRecursive(it) {

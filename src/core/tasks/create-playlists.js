@@ -52,7 +52,7 @@ function createPlaylist(mountpoint, name) {
   return getWalkmanGoPath(mountpoint).then(walkmanGoPath => {
     const playlistPath = path.resolve(walkmanGoPath, name)
     return fse
-      .readdir()
+      .readdir(playlistPath)
       .map(audiofile => {
         const audiopath = path.resolve(playlistPath, audiofile)
         const title = path.basename(audiopath, path.extname(audiopath))

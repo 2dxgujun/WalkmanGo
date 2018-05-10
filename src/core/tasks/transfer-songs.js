@@ -11,6 +11,9 @@ export default function() {
   Log.d('Start transfer songs')
   return prepare()
     .then(run)
+    .then(() => {
+      Log.d('Done transfer songs')
+    })
     .catch(err => {
       Log.e('Uncaught Error when transfer songs', err)
     })
@@ -29,9 +32,6 @@ function prepare() {
           )
         })
     })
-    .catch(MountpointNotFoundError, err => {
-      Log.e(err)
-    })
     .return(processor)
 }
 
@@ -42,7 +42,9 @@ function run(processor) {
 function prepareCopySongs(processor, mountpoint) {
   return findAllPlaylists().map(playlist => {
     return Promise.filter(playlist.songs, song => {
-      if (song.audio) return fse.pathExists(song.audio.path)
+      if (song.audio) {
+        return fse.pathExists(song.audio.path).then(exists => !exists)
+      }
       return false
     }).map(song => {
       return processor.add(() => {

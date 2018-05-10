@@ -4,7 +4,7 @@ import Logger from '../utils/logger'
 
 var job = null
 
-const Log = new Logger('schedule sync')
+const Log = new Logger('SCHEDULE')
 
 function enqueueTasks() {
   if (queue.getPendingLength() > 0) {
@@ -20,8 +20,8 @@ function enqueueTasks() {
     downloadAlbumArt
   } = require('./tasks')
 
-  //queue.add(fetchPlaylists)
-  //queue.add(downloadSongs)
+  queue.add(fetchPlaylists)
+  queue.add(downloadSongs)
   queue.add(downloadAlbumArt)
   queue.add(addAlbumArt)
 }

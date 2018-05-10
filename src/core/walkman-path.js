@@ -9,7 +9,7 @@ Promise.promisifyAll(drivelist)
 
 export default {
   ensureMountpoint,
-  getWalkmanGoDir,
+  getWalkmanGoPath,
   getWalkmanRootPath
 }
 
@@ -39,7 +39,7 @@ function ensureMountpoint() {
   })
 }
 
-function getWalkmanGoDir(mountpoint) {
+function getWalkmanGoPath(mountpoint) {
   return Promise.resolve(path.resolve(mountpoint.path, 'MUSIC/WALKMANGO'))
 }
 

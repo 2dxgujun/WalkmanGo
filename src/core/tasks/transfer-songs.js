@@ -2,80 +2,94 @@ import fse from 'fs-extra'
 import path from 'path'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import Processor from '../../utils/promise-processor'
-import { copy, remove } from './op'
-import walkmanPath from '../walkman-path'
+import Logger from '../../utils/logger'
+import { ensureMountpoint, getWalkmanGoPath } from '../walkman-path'
+
+const Log = new Logger('TRANSFER_SONGS')
 
 export default function() {
+  Log.d('Start transfer songs')
   return prepare()
-    .then(execute)
-    .catch(MountpointNotFoundError, e => {
-      console.error(e)
+    .then(run)
+    .catch(err => {
+      Log.e('Uncaught Error when transfer songs', err)
     })
 }
 
 function prepare() {
-  const processor = new Processor(4)
-  return walkmanPath.ensureMountpoint().then(mountpoint => {
-    return prepareTasks(processor, mountpoint)
-  })
-}
-
-function prepareTasks(processor, mountpoint) {
-  return prepareCopySongs(processor, mountpoint, err => {
-    // TODO
-  }).then(() => {
-    return prepareRemoveSongs(processor, mountpoint, err => {
-      // TODO
+  const processor = Processor.create()
+  return ensureMountpoint()
+    .then(mountpoint => {
+      return Promise.join(
+        prepareCopySongs(processor, mountpoint),
+        prepareRemoveSongs(processor, mountpoint)
+      )
     })
-  })
+    .catch(MountpointNotFoundError, err => {
+      Log.e(err)
+    })
+    .return(processor)
 }
 
-function execute(processor) {
+function run(processor) {
   return processor.run()
 }
 
-function prepareCopySongs(processor, mountpoint, handler) {
+function prepareCopySongs(processor, mountpoint) {
   return findAllPlaylists().map(playlist => {
     return Promise.filter(playlist.songs, song => {
       if (song.audio) return fse.pathExists(song.audio.path)
       return false
     }).map(song => {
-      return getWalkmanAudioPath(mountpoint, playlist, song).then(
-        walkmanAudioPath => {
-          return processor.add(copy(song.audio.path, walkmanAudioPath), handler)
-        }
-      )
+      return processor.add(() => {
+        Log.d(`Copy song ${song.name}`)
+        return getWalkmanAudioPath(mountpoint, playlist, song)
+          .then(walkmanAudioPath => {
+            return copy(song.audio.path, walkmanAudioPath)
+          })
+          .catch(err => {
+            Log.e(`Copy failed: ${song.name}`, err)
+          })
+      })
     })
   })
 }
 
-function prepareRemoveSongs(processor, mountpoint, handler) {
+function prepareRemoveSongs(processor, mountpoint) {
   return findAllPlaylists().then(playlists => {
-    return walkmanPath.getWalkmanGoDir(mountpoint).then(walkmanGoDir => {
-      return fse.readdir(walkmanGoDir).map(playlistDir => {
+    return walkmanPath.getWalkmanGoPath(mountpoint).then(walkmanGoPath => {
+      return fse.readdir(walkmanGoPath).map(playlistDir => {
         const playlist = playlists.find(playlist => {
           return playlist.name === playlistDir
         })
         if (!playlist) {
           // playlist not found
-          return processor.add(
-            remove(path.resolve(walkmanGoDir, playlistDir)),
-            handler
-          )
+          return processor.add(() => {
+            Log.d(`Remove playlist dir ${playlistDir}`)
+            return fse
+              .remove(path.resolve(walkmanGoPath, playlistDir))
+              .catch(err => {
+                Log.e(`Remove playlist dir failed: ${playlistDir}`, err)
+              })
+          })
         } else {
           // playlist found, go inside playlist dir
           return fse
-            .readdir(path.resolve(walkmanGoDir, playlistDir))
+            .readdir(path.resolve(walkmanGoPath, playlistDir))
             .map(audiofile => {
               const song = playlist.songs.find(song => {
                 return path.basename(song.audio.path) === audiofile
               })
               if (!song) {
                 // song not found
-                return processor.add(
-                  remove(path.resolve(walkmanGoDir, playlistDir, audiofile)),
-                  handler
-                )
+                return processor.add(() => {
+                  Log.d(`Remove song ${song.name}`)
+                  return fse
+                    .remove(path.resolve(walkmanGoPath, playlistDir, audiofile))
+                    .catch(err => {
+                      Log.e(`Remove song failed: ${song.name}`, err)
+                    })
+                })
               }
             })
         }
@@ -105,38 +119,20 @@ function findAllPlaylists() {
   })
 }
 
-function getWalkmanAudioDir(mountpoint, playlist) {
-  return walkmanPath.getWalkmanGoDir(mountpoint).then(walkmanGoDir => {
-    return path.resolve(walkmanGoDir, playlist.name)
+function copy(src, dest) {
+  const { src, dest } = this
+  const tmppath = `${dest}.tmp`
+  return fse.copy(src, tmppath).then(() => {
+    return fse.rename(tmppath, dest)
   })
 }
 
 function getWalkmanAudioPath(mountpoint, playlist, song) {
-  return walkmanPath.getWalkmanGoDir(mountpoint).then(walkmanGoDir => {
-    return getWalkmanAudioDir(walkmanGoDir, playlist).then(walkmanAudioDir => {
-      return path.resolve(walkmanAudioDir, path.basename(song.audio.path))
-    })
-  })
-}
-
-function findMountpointRecursive() {
-  return findMountpoint().then(mountpoint => {
-    if (mountpoint) return mountpoint
-    return Promise.delay(1000).then(findMountpointRecursive)
-  })
-}
-
-function findMountpoint() {
-  return findAllWalkmanMountpoints().then(mountpoints => {
-    if (!mountpoints || mountpoints.length === 0) {
-      return null
-    } else if (mountpoints.length > 1) {
-      return findDesiredMountpoint(mountpoints).then(mountpoint => {
-        if (mountpoint) return mountpoint
-        return promptSelectMountpoint(mountpoints)
-      })
-    } else {
-      return mountpoints[0]
-    }
+  return getWalkmanGoPath(mountpoint).then(walkmanGoPath => {
+    return path.resolve(
+      walkmanGoPath,
+      playlist.name,
+      path.basename(song.audio.path)
+    )
   })
 }

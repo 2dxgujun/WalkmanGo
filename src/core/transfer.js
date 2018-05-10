@@ -7,7 +7,7 @@ export function transfer() {
   return queue.add(run)
 }
 
-export function cancel() {
+export function cancelTransfer() {
   isCanceled = true
   return Promise.resolve()
 }
@@ -16,7 +16,7 @@ function run() {
   if (isCanceled) {
     return Promise.resolve()
   } else {
-    const { transfer_audios, create_playlists } = require('./tasks')
-    return transfer_playlists().then(create_playlists)
+    const { transferSongs, createPlaylists } = require('./tasks')
+    return transferSongs().then(createPlaylists)
   }
 }

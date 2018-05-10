@@ -3,38 +3,66 @@ import mp3duration from 'mp3-duration'
 import M3UWriter from '../../utils/m3u-writer'
 import fse from 'fs-extra'
 import path from 'path'
-import Op from './op'
 import Processor from '../../utils/promise-processor'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
-import walkmanPath from '../walkman-path'
+import {
+  ensureMountpoint,
+  getWalkmanGoPath,
+  getWalkmanRootPath
+} from '../walkman-path'
 import StringToStream from 'string-to-stream'
+import Logger from '../../utils/logger'
 
 const mp3durationAsync = Promise.promisify(mp3duration)
+const Log = new Logger('CREATE_PLAYLISTS')
 
-class CreatePlaylist extends Op {
-  constructor(path, name) {
-    super('CREATE_PLAYLIST')
-    this.path = path
-    this.name = name
-  }
+export default function() {
+  Log.d('Start create playlists')
+  return prepare()
+    .then(run)
+    .catch(err => {
+      Log.d('Uncaught Error when create playlists', err)
+    })
+}
 
-  execute() {
-    const { path, name } = this
-    const writer = new M3UWriter()
+function prepare() {
+  const processor = Processor.create()
+  return ensureMountpoint()
+    .then(mountpoint => {
+      return getWalkmanGoPath(mountpoint).then(walkmanGoPath => {
+        return fse.readdir(walkmanGoPath).map(dir => {
+          return processor.add(() => {
+            Log.d(`Create playlist ${dir}`)
+            return createPlaylist(mountpoint, dir).catch(err => {
+              Log.e(`Create playlist failed`, err)
+            })
+          })
+        })
+      })
+    })
+    .return(processor)
+}
+
+function run(processor) {
+  return processor.run()
+}
+
+function createPlaylist(mountpoint, name) {
+  const writer = new M3UWriter()
+  return getWalkmanGoPath(mountpoint).then(walkmanGoPath => {
+    const playlistPath = path.resolve(walkmanGoPath, name)
     return fse
-      .readdir(this.path)
+      .readdir()
       .map(audiofile => {
-        const audiopath = path.resolve(this.path, audiofile)
+        const audiopath = path.resolve(playlistPath, audiofile)
         const title = path.basename(audiopath, path.extname(audiopath))
-        const url = `WALKMANGO/${path.basename(this.path)}/${path.basename(
-          audiopath
-        )}`
+        const url = `WALKMANGO/${name}/${path.basename(audiopath)}`
         return getAudioDuration(audiopath).then(duration => {
-          writer.file(url, duration, title)
+          return writer.file(url, duration, title)
         })
       })
       .then(() => {
-        return walkmanPath.getWalkmanRootPath(walkmanRootPath => {
+        return getWalkmanRootPath(mountpoint).then(walkmanRootPath => {
           const dest = path.resolve(walkmanRootPath, `${name}.m3u`)
           const tmppath = `${dest}.tmp`
           return new Promise((resolve, reject) => {
@@ -51,36 +79,6 @@ class CreatePlaylist extends Op {
           })
         })
       })
-  }
-}
-
-export default function() {
-  return prepare().then(execute)
-}
-
-function prepare() {
-  const processor = new Processor(4)
-  return walkmanPath.ensureMountpoint().then(mountpoint => {
-    return walkmanPath.getWalkmanGoDir(mountpoint).then(walkmanGoDir => {
-      return fse.readdir(walkmanGoDir).map(playlistDir => {
-        return processor.add(() => {
-          return new CreatePlaylist(
-            path.resolve(walkmanGoDir, playlistDir),
-            playlistDir
-          ).execute()
-        }, handler)
-      })
-    })
-  })
-}
-
-function execute(processor) {
-  return processor.run()
-}
-
-function getWalkmanPlaylistPath(mountpoint, playlist) {
-  return walkmanPath.getWalkmanGoDir(mountpoint).then(walkmanGoDir => {
-    return path.resolve(walkmanGoDir, `${playlist.name}.m3u`)
   })
 }
 

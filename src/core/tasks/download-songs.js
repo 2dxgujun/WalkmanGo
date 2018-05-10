@@ -18,6 +18,9 @@ export default function() {
   Log.d('Start download songs')
   return prepare()
     .then(run)
+    .then(() => {
+      Log.d('Done download songs')
+    })
     .catch(err => {
       Log.e('Uncaught Error when download songs', err)
     })

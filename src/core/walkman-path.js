@@ -7,11 +7,7 @@ class MountpointNotFoundError extends Error {}
 
 Promise.promisifyAll(drivelist)
 
-export default {
-  ensureMountpoint,
-  getWalkmanGoPath,
-  getWalkmanRootPath
-}
+export { ensureMountpoint, getWalkmanGoPath, getWalkmanRootPath }
 
 function ensureMountpoint() {
   return findMountpoint().then(mountpoint => {
@@ -38,6 +34,26 @@ function ensureMountpoint() {
       })
   })
 }
+function findMountpointRecursive() {
+  return findMountpoint().then(mountpoint => {
+    if (mountpoint) return mountpoint
+    return Promise.delay(1000).then(findMountpointRecursive)
+  })
+}
+function findMountpoint() {
+  return findAllWalkmanMountpoints().then(mountpoints => {
+    if (!mountpoints || mountpoints.length === 0) {
+      return null
+    } else if (mountpoints.length > 1) {
+      return findDesiredMountpoint(mountpoints).then(mountpoint => {
+        if (mountpoint) return mountpoint
+        return promptSelectMountpoint(mountpoints)
+      })
+    } else {
+      return mountpoints[0]
+    }
+  })
+}
 
 function getWalkmanGoPath(mountpoint) {
   return Promise.resolve(path.resolve(mountpoint.path, 'MUSIC/WALKMANGO'))
@@ -49,7 +65,7 @@ function getWalkmanRootPath(mountpoint) {
 
 function findDesiredMountpoint(mountpoints) {
   return Promise.filter(mountpoints, mountpoint => {
-    return getWalkmanGoDir(mountpoint).then(fse.pathExists)
+    return getWalkmanGoPath(mountpoint).then(fse.pathExists)
   }).then(mountpoints => {
     if (mountpoints && mountpoints.length === 1) {
       return mountpoints[0]

@@ -8,9 +8,12 @@ import {
 export default function() {
   detect(
     (err, device) => {
-      return unscheduleSync() // TODO
+      unscheduleSync() // TODO
         .then(transfer)
         .then(scheduleSync)
+        .catch(err => {
+          console.log(err)
+        })
     },
     (err, device) => {
       return cancelTransfer().then(scheduleSync)

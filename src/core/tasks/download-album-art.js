@@ -16,6 +16,9 @@ export default function() {
   Log.d('Start download album art')
   return prepare()
     .then(run)
+    .then(() => {
+      Log.d('Done download album art')
+    })
     .catch(err => {
       return Log.e('Uncaught Error when download album art', err)
     })

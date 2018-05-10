@@ -32,7 +32,7 @@ export default class Processor extends Queue {
         Log.e('Uncaught Error in processor: ', err)
       })
       .then(() => {
-        if (this.pending && this.pendingPromises == 0) {
+        if (this.pending && this.pendingPromises === 0) {
           this.resolve()
         }
       })
@@ -45,6 +45,9 @@ export default class Processor extends Queue {
     this.pending = new Promise((resolve, reject) => {
       this.resolve = resolve
     })
+    if (this.pendingPromises === 0) {
+      return Promise.resolve()
+    }
     return this.pending
   }
 }

@@ -15,6 +15,9 @@ export default function() {
   Log.d('Start add album art')
   return prepare()
     .then(run)
+    .then(() => {
+      Log.d('Done add album art')
+    })
     .catch(err => {
       return Log.e('Uncaught Error when add album art', err)
     })

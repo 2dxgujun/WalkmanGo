@@ -4,6 +4,7 @@ var isCanceled = false
 
 export function transfer() {
   isCanceled = false
+  console.log('transfer')
   return queue.add(run)
 }
 

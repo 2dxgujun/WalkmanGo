@@ -20,10 +20,14 @@ function prepare() {
   const processor = Processor.create()
   return ensureMountpoint()
     .then(mountpoint => {
-      return Promise.join(
-        prepareCopySongs(processor, mountpoint),
-        prepareRemoveSongs(processor, mountpoint)
-      )
+      return getWalkmanGoPath(mountpoint)
+        .then(fse.ensureDir)
+        .then(() => {
+          return Promise.join(
+            prepareCopySongs(processor, mountpoint),
+            prepareRemoveSongs(processor, mountpoint)
+          )
+        })
     })
     .catch(MountpointNotFoundError, err => {
       Log.e(err)
@@ -45,7 +49,9 @@ function prepareCopySongs(processor, mountpoint) {
         Log.d(`Copy song ${song.name}`)
         return getWalkmanAudioPath(mountpoint, playlist, song)
           .then(walkmanAudioPath => {
-            return copy(song.audio.path, walkmanAudioPath)
+            return fse.ensureDir(path.dirname(walkmanAudioPath)).then(() => {
+              return copy(song.audio.path, walkmanAudioPath)
+            })
           })
           .catch(err => {
             Log.e(`Copy failed: ${song.name}`, err)

@@ -4,7 +4,6 @@ import sequelize, { Artist, Playlist, Song, Local } from '../../models'
 import path from 'path'
 import fse from 'fs-extra'
 import meter from 'stream-meter'
-import Op from './op'
 import Logger from '../../utils/logger'
 import Processor from '../../utils/promise-processor'
 
@@ -15,44 +14,12 @@ const {
 
 const Log = new Logger('fetch audios')
 
-class DownloadSong extends Op {
-  constructor(song) {
-    super('DOWNLOAD_SONG')
-    this.song = song
-  }
-
-  execute() {
-    return getAudioPath(this.song).then(audiopath => {
-      const tmppath = `${audiopath}.tmp`
-      return qqmusic
-        .getAudioStream(getTargetName(this.song))
-        .then(source => {
-          return new Promise((resolve, reject) => {
-            const m = meter()
-            const stream = source.pipe(m).pipe(fse.createWriteStream(tmppath))
-            source.on('error', reject)
-            stream.on('error', reject)
-            stream.on('finish', () => {
-              resolve(m.bytes)
-            })
-          })
-        })
-        .then(bytes => {
-          if (getTargetSize(this.song) != bytes) {
-            throw new Error('Not match target audio size')
-          }
-          return fse.rename(tmppath, audiopath).return(bytes)
-        })
-    })
-  }
-}
-
 export default function() {
   return prepare().then(run)
 }
 
 function prepare() {
-  const processor = new Processor()
+  const processor = Processor.create()
   return Song.all({
     include: [
       {
@@ -65,19 +32,9 @@ function prepare() {
       return getAudioPath(song).then(audiopath => {
         return fse.pathExists(audiopath).then(exists => {
           if (!exists) {
-            processor
-              .add(download(song))
-              .then(bytes => {
-                Log.d('Download succeed ' + song.name)
-                markAudio(song, audiopath, bytes).catch(err => {
-                  Log.e(`Mark ${song.name} failed`, err)
-                })
-              })
-              .catch(err => {
-                Log.e('Download error', err)
-              })
+            prepareDownloadSong(processor, song)
           } else {
-            // TODO Check mark
+            prepareCheckAudio(processor, song)
           }
         })
       })
@@ -89,26 +46,62 @@ function run(processor) {
   return processor.run()
 }
 
-function download(song) {
-  return () => {
-    Log.d('Start downloading ' + song.name)
-    return new DownloadSong(song).execute()
-  }
+function prepareDownloadSong(processor, song) {
+  processor.add(() => {
+    return getAudioPath(song).then(audiopath => {
+      return downloadSong(song)
+        .then(bytes => {
+          Log.d('Download song succeed')
+          return processor
+            .post(() => {
+              return createAudio(song, audiopath, bytes)
+            })
+            .then(() => {
+              Log.d('Create audio succeed')
+            })
+            .catch(err => {
+              Log.e('Create audio failed', err)
+            })
+        })
+        .catch(err => {
+          Log.e('Download song failed', err)
+        })
+    })
+  })
 }
 
-function getMimeType(audiopath) {
-  const extname = path.extname(audiopath)
-  if (extname === '.mp3') {
-    return 'audio/mp3'
-  } else if (extname === '.flac') {
-    return 'audio/flac'
-  } else {
-    throw new Error('Unrecognized audio type')
-  }
+function prepareCheckAudio(processor, song) {
+  processor.add(() => {
+    return getAudioPath(song).then(audiopath => {
+      return fse
+        .stat(audiopath)
+        .then(stats => {
+          return processor.post(() => {
+            return createAudioIfNotExists(song, audiopath, stats.size)
+          })
+        })
+        .catch(err => {
+          Log.e('Check audio failed', err)
+        })
+    })
+  })
 }
 
-function markAudio(song, audiopath, bytes) {
-  // TODO No transaction since concurrency
+function createAudioIfNotExists(song, audiopath, bytes) {
+  return Local.findOne({
+    where: {
+      path: audiopath,
+      mimeType: getMimeType(audiopath),
+      length: bytes
+    }
+  }).then(audio => {
+    if (!audio) {
+      return createAudio(song, audiopath, bytes)
+    }
+  })
+}
+
+function createAudio(song, audiopath, bytes) {
   return sequelize.transaction(t => {
     return Local.create(
       {
@@ -121,6 +114,43 @@ function markAudio(song, audiopath, bytes) {
       return song.setAudio(audio, { transaction: t })
     })
   })
+}
+
+function downloadSong(song) {
+  Log.d('Start downloading ' + song.name)
+  return getAudioPath(this.song).then(audiopath => {
+    const tmppath = `${audiopath}.tmp`
+    return qqmusic
+      .getAudioStream(getTargetName(this.song))
+      .then(source => {
+        return new Promise((resolve, reject) => {
+          const m = meter()
+          const stream = source.pipe(m).pipe(fse.createWriteStream(tmppath))
+          source.on('error', reject)
+          stream.on('error', reject)
+          stream.on('finish', () => {
+            resolve(m.bytes)
+          })
+        })
+      })
+      .then(bytes => {
+        if (getTargetSize(this.song) != bytes) {
+          throw new Error('Not match target audio size')
+        }
+        return fse.rename(tmppath, audiopath).return(bytes)
+      })
+  })
+}
+
+function getMimeType(audiopath) {
+  const extname = path.extname(audiopath)
+  if (extname === '.mp3') {
+    return 'audio/mp3'
+  } else if (extname === '.flac') {
+    return 'audio/flac'
+  } else {
+    throw new Error('Unrecognized audio type')
+  }
 }
 
 function getAudioPath(song) {

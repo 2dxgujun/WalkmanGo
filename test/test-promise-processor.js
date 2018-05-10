@@ -13,6 +13,12 @@ processor
   })
   .then(msg => {
     console.log('Done, result: ' + msg)
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        console.log('Timeout after 5 seconds')
+        resolve()
+      }, 5000)
+    })
   })
 
 processor.add(() => {

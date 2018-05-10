@@ -3,13 +3,23 @@ import os from 'os'
 
 const numCPUs = os.cpus().length
 
-export default class extends Queue {
+export default class Processor extends Queue {
+  static create() {
+    return new Processor()
+  }
+
   constructor(concurrency = numCPUs) {
     super(0, Infinity)
     this.concurrency = concurrency
     this.add = this.add.bind(this)
     this.run = this.run.bind(this)
+    this.post = this.post.bind(this)
+    this.blockingQueue = new Queue(1 /*max concurrent*/, Infinity)
     this.pending = null
+  }
+
+  post(generator) {
+    return this.blockingQueue.add(generator)
   }
 
   add(generator) {

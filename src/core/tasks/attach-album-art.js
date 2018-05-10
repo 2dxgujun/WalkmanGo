@@ -4,24 +4,12 @@ import fse from 'fs-extra'
 import flac from 'node-flac'
 import id3 from 'node-id3'
 import sharp from 'sharp'
-import Op from './op'
 import Processor from '../../utils/promise-processor'
 import Logger from '../../utils/logger'
 
 Promise.promisifyAll(id3)
 
 const Log = new Logger('attach album art')
-
-class AttachAlbumArt extends Op {
-  constructor(song) {
-    super('ATTACH_ALBUM_ART')
-    this.song = song
-  }
-
-  execute() {
-    return attachAlbumArt(this.song)
-  }
-}
 
 export default function() {
   return prepare().then(run)
@@ -49,17 +37,13 @@ function prepare() {
     ]
   })
     .map(song => {
-      return isAlbumArtAttached(song).then(attached => {
-        if (!attached) {
-          return processor.add(attach(song), err => {
-            if (err) {
-              Log.e('Attach album art error', err)
-              return
-            }
-            Log.d(`Attach album art succeed`)
-          })
-        }
-      })
+      if (song.audio && song.album && song.album.art) {
+        return isAlbumArtAttached(song).then(attached => {
+          if (!attached) {
+            prepareAttachAlbumArt(song)
+          }
+        })
+      }
     })
     .return(processor)
 }
@@ -68,11 +52,16 @@ function run(processor) {
   return processor.run()
 }
 
-function attach(song) {
-  return () => {
-    Log.d('Start attaching album art: ' + song.name)
-    return new AttachAlbumArt(song).execute()
-  }
+function prepareAttachAlbumArt(processor, song) {
+  processor.add(() => {
+    return attachAlbumArt(song)
+      .then(() => {
+        Log.d('Attach album art succeed')
+      })
+      .catch(err => {
+        Log.e('Attach album art failed', err)
+      })
+  })
 }
 
 function attachAlbumArt(song) {
@@ -137,7 +126,6 @@ function attachAlbumArtMp3(song) {
 }
 
 function isAlbumArtAttached(song) {
-  // TODO Check exists, last job may failed
   if (song.audio.mimeType === 'audio/flac') {
     return isAlbumArtAttachedFlac(song)
   } else if (song.audio.mimeType === 'audio/mp3') {

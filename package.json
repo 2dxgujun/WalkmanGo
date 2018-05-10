@@ -1,7 +1,7 @@
 {
-  "name": "walkman",
+  "name": "walkman-go",
   "version": "0.0.1",
-  "description": "walkman",
+  "description": "Sync online playlists to Sony Walkman",
   "main": "src/index.js",
   "scripts": {
     "dev": "export NODE_ENV=development && babel-node --expose-gc src",
@@ -10,7 +10,11 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "2dxgujun",
-  "license": "ISC",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/2dxgujun/WalkmanGo.git"
+  },
   "dependencies": {
     "bluebird": "^3.5.1",
     "commander": "^2.15.1",

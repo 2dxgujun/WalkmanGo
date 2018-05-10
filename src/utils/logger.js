@@ -6,18 +6,18 @@ export default class {
   }
 
   d() {
-    this.innerLogger.debug(arguments)
+    this.innerLogger.debug(...arguments)
   }
 
   i() {
-    this.innerLogger.info(arguments)
+    this.innerLogger.info(...arguments)
   }
 
   w() {
-    this.innerLogger.warn(arguments)
+    this.innerLogger.warn(...arguments)
   }
 
   e() {
-    this.innerLogger.error(arguments)
+    this.innerLogger.error(...arguments)
   }
 }

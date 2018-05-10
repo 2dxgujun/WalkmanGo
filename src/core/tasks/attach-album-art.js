@@ -5,9 +5,12 @@ import flac from 'node-flac'
 import id3 from 'node-id3'
 import sharp from 'sharp'
 import Op from './op'
-import ProcessQueue from '../../utils/promise-queue-processor'
+import Processor from '../../utils/promise-processor'
+import Logger from '../../utils/logger'
 
 Promise.promisifyAll(id3)
+
+const Log = new Logger('attach album art')
 
 class AttachAlbumArt extends Op {
   constructor(song) {
@@ -25,7 +28,7 @@ export default function() {
 }
 
 function prepare() {
-  const queue = new ProcessQueue(4)
+  const processor = new Processor()
   return Song.all({
     include: [
       {
@@ -44,23 +47,25 @@ function prepare() {
         ]
       }
     ]
-  }).map(song => {
-    return isAlbumArtAttached(song).then(attached => {
-      if (!attached) {
-        return queue.enqueue(attach(song), err => {
-          if (err) {
-            Log.e('Attach album art error', err)
-            return
-          }
-          Log.d(`Attach album art succeed`)
-        })
-      }
-    })
   })
+    .map(song => {
+      return isAlbumArtAttached(song).then(attached => {
+        if (!attached) {
+          return processor.add(attach(song), err => {
+            if (err) {
+              Log.e('Attach album art error', err)
+              return
+            }
+            Log.d(`Attach album art succeed`)
+          })
+        }
+      })
+    })
+    .return(processor)
 }
 
-function run(queue) {
-  return queue.run()
+function run(processor) {
+  return processor.run()
 }
 
 function attach(song) {
@@ -132,10 +137,11 @@ function attachAlbumArtMp3(song) {
 }
 
 function isAlbumArtAttached(song) {
+  // TODO Check exists, last job may failed
   if (song.audio.mimeType === 'audio/flac') {
-    return isAlbumArtAttached_flac(song)
+    return isAlbumArtAttachedFlac(song)
   } else if (song.audio.mimeType === 'audio/mp3') {
-    return isAlbumArtAttached_mp3(song)
+    return isAlbumArtAttachedMp3(song)
   } else {
     throw new Error('Unknown audio format')
   }

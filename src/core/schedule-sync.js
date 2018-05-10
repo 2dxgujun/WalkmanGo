@@ -4,7 +4,7 @@ import Logger from '../utils/logger'
 
 var job = null
 
-const Log = new Logger('ScheduleSync')
+const Log = new Logger('schedule sync')
 
 function enqueueTasks() {
   const {
@@ -13,14 +13,15 @@ function enqueueTasks() {
     fetchAudios,
     fetchAlbumArt
   } = require('./tasks')
-
+  
+  // TODO Only enqueue if currently not pending
   Log.d('Enqueue tasks')
-  queue.add(fetchPlaylists).catch(err => {
-    Log.e('Uncaught error when fetch playlists', err)
-  })
-  queue.add(fetchAudios).catch(err => {
-    Log.e('Uncaught error when fetch audios', err)
-  })
+  //queue.add(fetchPlaylists).catch(err => {
+  //  Log.e('Uncaught error when fetch playlists', err)
+  //})
+  //queue.add(fetchAudios).catch(err => {
+  //  Log.e('Uncaught error when fetch audios', err)
+  //})
   queue.add(fetchAlbumArt).catch(err => {
     Log.e('Uncaught error when fetch album art', err)
   })

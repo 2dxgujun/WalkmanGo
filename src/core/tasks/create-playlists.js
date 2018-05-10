@@ -4,7 +4,7 @@ import M3UWriter from '../../utils/m3u-writer'
 import fse from 'fs-extra'
 import path from 'path'
 import Op from './op'
-import ProcessQueue from '../../utils/promise-queue-processor'
+import Processor from '../../utils/promise-processor'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import walkmanPath from '../walkman-path'
 import StringToStream from 'string-to-stream'
@@ -59,11 +59,11 @@ export default function() {
 }
 
 function prepare() {
-  const queue = new ProcessQueue(4)
+  const processor = new Processor(4)
   return walkmanPath.ensureMountpoint().then(mountpoint => {
     return walkmanPath.getWalkmanGoDir(mountpoint).then(walkmanGoDir => {
       return fse.readdir(walkmanGoDir).map(playlistDir => {
-        return queue.enqueue(() => {
+        return processor.add(() => {
           return new CreatePlaylist(
             path.resolve(walkmanGoDir, playlistDir),
             playlistDir
@@ -74,8 +74,8 @@ function prepare() {
   })
 }
 
-function execute(queue) {
-  return queue.run()
+function execute(processor) {
+  return processor.run()
 }
 
 function getWalkmanPlaylistPath(mountpoint, playlist) {

@@ -6,9 +6,12 @@ import path from 'path'
 import fse from 'fs-extra'
 import meter from 'stream-meter'
 import Op from './op'
-import ProcessQueue from '../../utils/promise-queue-processor'
+import Processor from '../../utils/promise-processor'
+import Logger from '../../utils/logger'
 
 const { walkman_config_workdir: workdir } = process.env
+
+const Log = new Logger('fetch album art')
 
 class DownloadAlbumArt extends Op {
   constructor(album) {
@@ -20,7 +23,7 @@ class DownloadAlbumArt extends Op {
     return getAlbumArtPath(this.album).then(artpath => {
       const tmppath = `${artpath}.tmp`
       return qqmusic
-        .getAlbumArtStream(album.id)
+        .getAlbumArtStream(this.album.id)
         .then(source => {
           return new Promise((resolve, reject) => {
             const m = meter()
@@ -31,7 +34,7 @@ class DownloadAlbumArt extends Op {
                   .jpeg()
               )
               .pipe(m)
-              .pipe(fse.createWriteStream(temppath))
+              .pipe(fse.createWriteStream(tmppath))
             source.on('error', reject)
             stream.on('error', reject)
             stream.on('finish', () => {
@@ -40,7 +43,7 @@ class DownloadAlbumArt extends Op {
           })
         })
         .then(bytes => {
-          return fse.rename(temppath, artpath).return(bytes)
+          return fse.rename(tmppath, artpath).return(bytes)
         })
     })
   }
@@ -51,29 +54,32 @@ export default function() {
 }
 
 function prepare() {
-  const queue = new ProcessQueue(4)
-  return Album.all().map(album => {
-    return getAlbumArtPath(album).then(artpath => {
-      return fse.pathExists(artpath).then(exists => {
-        if (!exists) {
-          return queue.enqueue(download(album), (err, bytes) => {
-            if (err) {
-              Log.e('Download album art error', err)
-              return
-            }
-            Log.d('Download album art succeed ' + album.mid)
-            markArt(album, artpath, bytes).catch(err => {
-              Log.e(`Mark ${album.mid} failed`, err)
-            })
-          })
-        }
+  const processor = new Processor()
+  return Album.all()
+    .map(album => {
+      return getAlbumArtPath(album).then(artpath => {
+        return fse.pathExists(artpath).then(exists => {
+          if (!exists) {
+            processor
+              .add(download(album))
+              .then(bytes => {
+                Log.d('Download album art succeed ' + album.mid)
+                markArt(album, artpath, bytes).catch(err => {
+                  Log.e(`Mark ${album.mid} failed`, err)
+                })
+              })
+              .catch(err => {
+                Log.e('Download album art error', err)
+              })
+          }
+        })
       })
     })
-  })
+    .return(processor)
 }
 
-function run(queue) {
-  return queue.run()
+function run(processor) {
+  return processor.run()
 }
 
 function download(album) {

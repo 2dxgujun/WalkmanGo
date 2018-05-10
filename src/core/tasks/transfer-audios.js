@@ -1,7 +1,7 @@
 import fse from 'fs-extra'
 import path from 'path'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
-import ProcessQueue from '../../utils/promise-queue-processor'
+import Processor from '../../utils/promise-processor'
 import { copy, remove } from './op'
 import walkmanPath from '../walkman-path'
 
@@ -14,27 +14,27 @@ export default function() {
 }
 
 function prepare() {
-  const queue = new ProcessQueue(4)
+  const processor = new Processor(4)
   return walkmanPath.ensureMountpoint().then(mountpoint => {
-    return prepareTasks(queue, mountpoint)
+    return prepareTasks(processor, mountpoint)
   })
 }
 
-function prepareTasks(queue, mountpoint) {
-  return prepareCopySongs(queue, mountpoint, err => {
+function prepareTasks(processor, mountpoint) {
+  return prepareCopySongs(processor, mountpoint, err => {
     // TODO
   }).then(() => {
-    return prepareRemoveSongs(queue, mountpoint, err => {
+    return prepareRemoveSongs(processor, mountpoint, err => {
       // TODO
     })
   })
 }
 
-function execute(queue) {
-  return queue.run()
+function execute(processor) {
+  return processor.run()
 }
 
-function prepareCopySongs(queue, mountpoint, handler) {
+function prepareCopySongs(processor, mountpoint, handler) {
   return findAllPlaylists().map(playlist => {
     return Promise.filter(playlist.songs, song => {
       if (song.audio) return fse.pathExists(song.audio.path)
@@ -42,14 +42,14 @@ function prepareCopySongs(queue, mountpoint, handler) {
     }).map(song => {
       return getWalkmanAudioPath(mountpoint, playlist, song).then(
         walkmanAudioPath => {
-          return queue.enqueue(copy(song.audio.path, walkmanAudioPath), handler)
+          return processor.add(copy(song.audio.path, walkmanAudioPath), handler)
         }
       )
     })
   })
 }
 
-function prepareRemoveSongs(queue, mountpoint, handler) {
+function prepareRemoveSongs(processor, mountpoint, handler) {
   return findAllPlaylists().then(playlists => {
     return walkmanPath.getWalkmanGoDir(mountpoint).then(walkmanGoDir => {
       return fse.readdir(walkmanGoDir).map(playlistDir => {
@@ -58,7 +58,7 @@ function prepareRemoveSongs(queue, mountpoint, handler) {
         })
         if (!playlist) {
           // playlist not found
-          return queue.enqueue(
+          return processor.add(
             remove(path.resolve(walkmanGoDir, playlistDir)),
             handler
           )
@@ -72,7 +72,7 @@ function prepareRemoveSongs(queue, mountpoint, handler) {
               })
               if (!song) {
                 // song not found
-                return queue.enqueue(
+                return processor.add(
                   remove(path.resolve(walkmanGoDir, playlistDir, audiofile)),
                   handler
                 )

@@ -1,7 +1,7 @@
 import * as qqmusic from '../../vendor/qqmusic'
 import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song } from '../../models'
-import Logger from '../utils/logger'
+import Logger from '../../utils/logger'
 
 const {
   walkman_config_uin: uin,

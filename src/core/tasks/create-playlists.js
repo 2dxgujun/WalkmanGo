@@ -20,6 +20,9 @@ export default function() {
   Log.d('Start create playlists')
   return prepare()
     .then(run)
+    .then(() => {
+      Log.d('Done create playlists')
+    })
     .catch(err => {
       Log.d('Uncaught Error when create playlists', err)
     })

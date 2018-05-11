@@ -43,7 +43,13 @@ function prepareCopySongs(processor, mountpoint) {
   return findAllPlaylists().map(playlist => {
     return Promise.filter(playlist.songs, song => {
       if (song.audio) {
-        return fse.pathExists(song.audio.path).then(exists => !exists)
+        return Promise.join(
+          fse.pathExists(song.audio.path),
+          getWalkmanAudioPath(mountpoint, playlist, song).then(fse.pathExists),
+          (audioExists, walkmanAudioExists) => {
+            return audioExists && !walkmanAudioExists
+          }
+        )
       }
       return false
     }).map(song => {

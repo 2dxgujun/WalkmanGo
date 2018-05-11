@@ -1,4 +1,4 @@
-# Walkman Go
+# Walkman Go (beta)
 
 > A CLI for sync playlists to Sony Walkman deivce
 
@@ -21,7 +21,7 @@ Firstly, install as a global package.
 
 Create a work directory, for example `~/WalkmanGo`, put **walkman-go.ini** into the directory.
 
-```
+```ini
 # walkman-go.ini
 [general]
 workdir = ~/WalkmanGo
@@ -37,5 +37,5 @@ playlists[] = Playlist2
 
 Start WalkmanGo:
 ```
-walkman-go
+$ walkman-go
 ```

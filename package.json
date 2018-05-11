@@ -1,16 +1,20 @@
 {
   "name": "walkman-go",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "Sync online playlists to Sony Walkman",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
     "dev": "export NODE_ENV=development && babel-node --expose-gc src",
     "build": "babel src -d dist",
     "start": "node dist",
+    "prepublish": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "2dxgujun",
+  "author": "Jun Gu <2dxgujun@gmail.com>",
   "license": "Apache-2.0",
+  "bin": {
+    "walkman-go": "./bin/walkman-go-cli.js"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/2dxgujun/WalkmanGo.git"

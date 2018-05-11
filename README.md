@@ -1,6 +1,6 @@
-# WalkmanGo
+# Walkman Go
 
-> A CLI for sync QQMusic playlists to Sony Walkman deivce
+> A CLI for sync playlists to Sony Walkman deivce
 
 ## Features
 

@@ -45,6 +45,12 @@ Start WalkmanGo:
 $ walkman-go
 ```
 
+## Requirements
+
+* UNIX or UNIX-like system
+* Node.js
+* libFLAC (v1.2+) [FLAC Homepage](https://xiph.org/flac/index.html)
+
 ## Tested On
 
 * NW-A35

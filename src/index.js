@@ -8,6 +8,7 @@ import untildify from 'untildify'
 
 import { schedule as scheduleSync } from './core/schedule-sync'
 import initDetection from './core/init-detection'
+import pkg from '../package.json'
 
 global.Promise = Bluebird
 
@@ -26,7 +27,7 @@ function setup(config) {
 }
 
 program
-  .version('0.0.1')
+  .version(pkg.version)
   .option(
     '-c, --config <path>',
     'set config file. defaults to ./walkman-go.ini'

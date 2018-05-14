@@ -18,11 +18,8 @@ export default function() {
   Log.d('Start download songs')
   return prepare()
     .then(run)
-    .then(() => {
-      Log.d('Done download songs')
-    })
     .catch(err => {
-      Log.e('Uncaught Error when download songs', err)
+      return Log.e('Uncaught Error when download song', err)
     })
 }
 
@@ -33,19 +30,20 @@ function prepare() {
       {
         model: Artist,
         as: 'artists'
+      },
+      {
+        model: Local,
+        as: 'audios'
       }
     ]
   })
     .map(song => {
-      return getAudioPath(song).then(audiopath => {
-        return fse.pathExists(audiopath).then(exists => {
-          if (!exists) {
-            return prepareDownloadSong(processor, song)
-          } else {
-            return prepareCheckAudio(processor, song)
-          }
-        })
+      const audio = song.audios.find(audio => {
+        return audio.SongAudio.bitrate === getTargetBitrate(song)
       })
+      if (!audio) {
+        return prepareDownload(processor, song)
+      }
     })
     .return(processor)
 }
@@ -54,54 +52,28 @@ function run(processor) {
   return processor.run()
 }
 
-function prepareDownloadSong(processor, song) {
+function prepareDownload(processor, song) {
   return processor.add(() => {
-    Log.d(`Downloading: ${toString(song)}`)
-    return getAudioPath(song).then(audiopath => {
+    return getLocalAudioPath(song).then(audiopath => {
+      Log.d(`Downloading: ${audiopath}`)
       return downloadSong(song)
         .then(() => {
           return processor
             .post(() => {
-              return createAudio(song, audiopath)
+              return addAudio(song, audiopath)
             })
             .catch(err => {
-              Log.e(`Create audio failed: ${audiopath}`, err)
+              Log.e(`Add audio failed: ${audiopath}`, err)
             })
         })
         .catch(err => {
-          Log.e(`Download failed: ${toString(song)}`, err)
+          Log.e(`Download failed: ${audiopath}`, err)
         })
     })
   })
 }
 
-function prepareCheckAudio(processor, song) {
-  return processor.add(() => {
-    return getAudioPath(song).then(audiopath => {
-      return processor
-        .post(() => {
-          return createAudioIfNotExists(song, audiopath)
-        })
-        .catch(err => {
-          Log.e(`Check audio failed: ${audiopath}`, err)
-        })
-    })
-  })
-}
-
-function createAudioIfNotExists(song, audiopath) {
-  return Local.findOne({
-    where: {
-      path: audiopath
-    }
-  }).then(audio => {
-    if (!audio) {
-      return createAudio(song, audiopath)
-    }
-  })
-}
-
-function createAudio(song, audiopath) {
+function addAudio(song, audiopath) {
   return fse.stat(audiopath).then(stats => {
     return sequelize.transaction(t => {
       return Local.create(
@@ -112,17 +84,20 @@ function createAudio(song, audiopath) {
         },
         { transaction: t }
       ).then(audio => {
-        return song.setAudio(audio, { transaction: t })
+        return song.addAudio(audio, {
+          through: { bitrate: getTargetBitrate(song) },
+          transaction: t
+        })
       })
     })
   })
 }
 
 function downloadSong(song) {
-  return getAudioPath(song).then(audiopath => {
+  return getLocalAudioPath(song).then(audiopath => {
     const tmppath = `${audiopath}.tmp`
     return qqmusic
-      .getAudioStream(getTargetName(song))
+      .getAudioStream(getRemoteAudioFile(song))
       .then(source => {
         return new Promise((resolve, reject) => {
           const m = meter()
@@ -135,7 +110,7 @@ function downloadSong(song) {
         })
       })
       .then(bytes => {
-        if (getTargetSize(song) != bytes) {
+        if (getRemoteAudioSize(song) != bytes) {
           throw new Error('Not match target audio size')
         }
         return fse.rename(tmppath, audiopath).return(bytes)
@@ -154,58 +129,51 @@ function getMimeType(audiopath) {
   }
 }
 
-function toString(song) {
-  let result
-  if (song.artists && song.artists.length > 0) {
-    result = `${song.artists[0].name} - ${song.name}`
-  } else {
-    result = `${song.name}`
-  }
-  result = result + ` (${getTargetSize(song)})` // TODO
-  return result
-}
-
-function getAudioPath(song) {
-  const audiodir = path.resolve(workdir, 'music')
+function getLocalAudioPath(song) {
+  const audiodir = path.resolve(workdir, 'music', getTargetBitrate(song))
   return fse.ensureDir(audiodir).then(() => {
-    const extname = path.extname(getTargetName(song))
-    let songfile
+    const extname = path.extname(getRemoteAudioFile(song))
+    let artistName = 'Unknown'
     if (song.artists && song.artists.length > 0) {
-      songfile = `${song.artists[0].name} - ${song.name}${extname}`
-    } else {
-      songfile = `${song.name}${extname}`
+      artistName = `${song.artists[0].name}`
     }
-    songfile = songfile.replace('/', ',')
-    const audiopath = path.resolve(audiodir, songfile)
-    return audiopath
+    const songfile = `${artistName} - ${song.name}${extname}`.replace('/', ',')
+    return path.resolve(audiodir, songfile)
   })
 }
 
-function getTargetSize(song) {
-  if (bitrate === 'flac' && song.sizeflac > 0) {
-    return song.sizeflac
-  } else if ((bitrate === 'flac' || bitrate === '320') && song.size320 > 0) {
-    return song.size320
-  } else if (
-    (bitrate === 'flac' || bitrate === '320' || bitrate === '128') &&
-    song.size128 > 0
-  ) {
-    return song.size128
-  } else {
-    throw new Error('Unrecognized bitrate')
+function getRemoteAudioSize(song) {
+  switch (getTargetBitrate(song)) {
+    case 'flac':
+      return song.sizeflac
+    case '320':
+      return song.size320
+    case '128':
+      return song.size128
   }
 }
 
-function getTargetName(song) {
+function getRemoteAudioFile(song) {
+  switch (getTargetBitrate(song)) {
+    case 'flac':
+      return `F000${song.mid}.flac`
+    case '320':
+      return `M800${song.mid}.mp3`
+    case '128':
+      return `M500${song.mid}.mp3`
+  }
+}
+
+function getTargetBitrate(song) {
   if (bitrate === 'flac' && song.sizeflac > 0) {
-    return `F000${song.mid}.flac`
+    return 'flac'
   } else if ((bitrate === 'flac' || bitrate === '320') && song.size320 > 0) {
-    return `M800${song.mid}.mp3`
+    return '320'
   } else if (
     (bitrate === 'flac' || bitrate === '320' || bitrate === '128') &&
     song.size128 > 0
   ) {
-    return `M500${song.mid}.mp3`
+    return '128'
   } else {
     throw new Error('Unrecognized bitrate')
   }

@@ -14,16 +14,16 @@ function enqueueTasks() {
   Log.d('Enqueue tasks')
 
   const {
-    addAlbumArt,
+    addAlbumArtworks,
     fetchPlaylists,
     downloadSongs,
-    downloadAlbumArt
+    downloadAlbumArtworks
   } = require('./tasks')
 
   queue.add(fetchPlaylists)
   queue.add(downloadSongs)
-  queue.add(downloadAlbumArt)
-  queue.add(addAlbumArt)
+  queue.add(downloadAlbumArtworks)
+  //queue.add(addAlbumArtworks)
 }
 
 export function schedule() {

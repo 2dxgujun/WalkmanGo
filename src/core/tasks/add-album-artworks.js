@@ -2,12 +2,12 @@ import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import fse from 'fs-extra'
 import flac from 'node-flac'
-import id3 from 'node-id3'
+import ID3v2 from 'node-id3'
 import sharp from 'sharp'
 import Processor from '../../utils/promise-processor'
 import Logger from '../../utils/logger'
 
-Promise.promisifyAll(id3)
+Promise.promisifyAll(ID3v2)
 
 const Log = new Logger('ADD_ALBUM_ART')
 
@@ -119,7 +119,7 @@ function addAlbumArtFlac(song) {
 }
 
 function addAlbumArtMp3(song) {
-  return id3.updateAsync(
+  return ID3v2.updateAsync(
     {
       image: song.album.art.path
     },
@@ -138,7 +138,7 @@ function isAlbumArtAdded(song) {
 }
 
 function isAlbumArtAddedMp3(song) {
-  return id3.readAsync(song.audio.path).then(tags => {
+  return ID3v2.readAsync(song.audio.path).then(tags => {
     if (tags['image']) {
       return true
     }

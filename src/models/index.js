@@ -69,17 +69,13 @@ Album.belongsTo(Artist, {
   as: 'artist'
 })
 
-// TODO
-//Song.belongsToMany(Local, {
-//  through: SongAudio,
-//  as: 'audios'
-//})
-
-Song.belongsTo(Local, {
-  as: 'audio'
+Song.belongsToMany(Local, {
+  through: SongAudio,
+  otherKey: 'audio_id',
+  as: 'audios'
 })
 Album.belongsTo(Local, {
-  as: 'art'
+  as: 'artwork'
 })
 
 export { Album, Artist, Playlist, Song, Local }

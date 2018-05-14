@@ -16,9 +16,6 @@ export default function() {
   Log.d('Start download album art')
   return prepare()
     .then(run)
-    .then(() => {
-      Log.d('Done download album art')
-    })
     .catch(err => {
       return Log.e('Uncaught Error when download album art', err)
     })
@@ -26,17 +23,18 @@ export default function() {
 
 function prepare() {
   const processor = Processor.create()
-  return Album.all()
+  return Album.all({
+    include: [
+      {
+        model: Local,
+        as: 'artwork'
+      }
+    ]
+  })
     .map(album => {
-      return getAlbumArtPath(album).then(artpath => {
-        return fse.pathExists(artpath).then(exists => {
-          if (!exists) {
-            return prepareDownloadAlbumArt(processor, album)
-          } else {
-            return prepareCheckAlbumArt(processor, album)
-          }
-        })
-      })
+      if (!album.artwork) {
+        return prepareDownload(processor, album)
+      }
     })
     .return(processor)
 }
@@ -45,73 +43,47 @@ function run(processor) {
   return processor.run()
 }
 
-function prepareDownloadAlbumArt(processor, album) {
+function prepareDownload(processor, album) {
   return processor.add(() => {
-    Log.d(`Downloading: ${album.id}`)
-    return getAlbumArtPath(album).then(artpath => {
-      return downloadAlbumArt(album)
+    return getArtworkPath(album).then(artworkPath => {
+      Log.d(`Downloading: ${artworkPath}`)
+      return downloadArtwork(album)
         .then(() => {
           return processor
             .post(() => {
-              return createAlbumArt(album, artpath)
+              return addArtwork(album, artworkPath)
             })
             .catch(err => {
-              Log.e(`Create album art failed: ${artpath}`, err)
+              Log.e(`Create artwork failed: ${artworkPath}`, err)
             })
         })
         .catch(err => {
-          Log.e(`Download album art failed: ${album.id}`, err)
+          Log.e(`Download failed: ${artworkPath}`, err)
         })
     })
   })
 }
 
-function prepareCheckAlbumArt(processor, album) {
-  return processor.add(() => {
-    return getAlbumArtPath(album).then(artpath => {
-      return processor
-        .post(() => {
-          return createAlbumArtIfNotExists(album, artpath)
-        })
-        .catch(err => {
-          Log.e(`Check album art failed: ${artpath}`, err)
-        })
-    })
-  })
-}
-
-function createAlbumArtIfNotExists(album, artpath) {
-  return Local.findOne({
-    where: {
-      path: artpath
-    }
-  }).then(art => {
-    if (!art) {
-      return createAlbumArt(album, artpath)
-    }
-  })
-}
-
-function createAlbumArt(album, artpath) {
-  return fse.stat(artpath).then(stats => {
+function addArtwork(album, artworkPath) {
+  return fse.stat(artworkPath).then(stats => {
     return sequelize.transaction(t => {
       return Local.create(
         {
-          path: artpath,
-          mimeType: getMimeType(artpath),
+          path: artworkPath,
+          mimeType: getMimeType(artworkPath),
           length: stats.size
         },
         { transaction: t }
-      ).then(art => {
-        return album.setArt(art, { transaction: t })
+      ).then(artwork => {
+        return album.setArtwork(artwork, { transaction: t })
       })
     })
   })
 }
 
 function downloadAlbumArt(album) {
-  return getAlbumArtPath(album).then(artpath => {
-    const tmppath = `${artpath}.tmp`
+  return getArtworkPath(album).then(artworkPath => {
+    const tmppath = `${artworkPath}.tmp`
     return qqmusic
       .getAlbumArtStream(album.id)
       .then(source => {
@@ -133,13 +105,13 @@ function downloadAlbumArt(album) {
         })
       })
       .then(bytes => {
-        return fse.rename(tmppath, artpath).return(bytes)
+        return fse.rename(tmppath, artworkPath).return(bytes)
       })
   })
 }
 
-function getMimeType(artpath) {
-  const extname = path.extname(artpath)
+function getMimeType(artworkPath) {
+  const extname = path.extname(artworkPath)
   if (extname === '.jpeg') {
     return 'image/jpeg'
   } else {
@@ -147,11 +119,11 @@ function getMimeType(artpath) {
   }
 }
 
-function getAlbumArtPath(album) {
+function getArtworkPath(album) {
   const artdir = path.resolve(workdir, 'art')
   return fse.ensureDir(artdir).then(() => {
     const artfile = `${album.mid}.jpeg`
-    const artpath = path.resolve(artdir, artfile)
-    return artpath
+    const artworkPath = path.resolve(artdir, artfile)
+    return artworkPath
   })
 }

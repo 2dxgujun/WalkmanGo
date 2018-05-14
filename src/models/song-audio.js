@@ -1,3 +1,5 @@
+import Sequelize from 'sequelize'
+
 export default function(sequelize, DataTypes) {
   return sequelize.define(
     'SongAudio',

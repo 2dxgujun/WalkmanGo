@@ -69,9 +69,14 @@ Album.belongsTo(Artist, {
   as: 'artist'
 })
 
-Song.belongsToMany(Local, {
-  through: SongAudio,
-  as: 'audios'
+// TODO
+//Song.belongsToMany(Local, {
+//  through: SongAudio,
+//  as: 'audios'
+//})
+
+Song.belongsTo(Local, {
+  as: 'audio'
 })
 Album.belongsTo(Local, {
   as: 'art'

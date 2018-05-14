@@ -3,11 +3,15 @@ var ID3v1 = require('../src/utils/ID3v1')
 
 var audio = '/Users/2dxgujun/Desktop/A-Lin - 分手需要练习的.mp3'
 
-var succeed = ID3v2.removeTags(audio)
-console.log('remove ID3v2 tags: ' + succeed)
+ID3v2.write(
+  {
+    private: {
+      owner: 'WALKMANGO_BITRATE',
+      data: '320'
+    }
+  },
+  audio
+)
 
-ID3v1.removeTags(audio).then(() => {
-  console.log('remove ID3v1 tags')
-}).catch(err => {
-  console.error(err)
-})
+let tags = ID3v2.read(audio)
+console.log(tags)

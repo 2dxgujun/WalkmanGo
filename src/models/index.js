@@ -37,6 +37,7 @@ const {
   Song,
   PlaylistSong,
   ArtistSong,
+  SongAudio,
   Local
 } = models
 
@@ -68,8 +69,9 @@ Album.belongsTo(Artist, {
   as: 'artist'
 })
 
-Song.belongsTo(Local, {
-  as: 'audio'
+Song.belongsToMany(Local, {
+  through: SongAudio,
+  as: 'audios'
 })
 Album.belongsTo(Local, {
   as: 'art'

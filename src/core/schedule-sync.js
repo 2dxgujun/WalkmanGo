@@ -13,17 +13,11 @@ function enqueueTasks() {
   }
   Log.d('Enqueue tasks')
 
-  const {
-    addAlbumArtworks,
-    fetchPlaylists,
-    downloadSongs,
-    downloadAlbumArtworks
-  } = require('./tasks')
-
-  queue.add(fetchPlaylists)
-  queue.add(downloadSongs)
-  queue.add(downloadAlbumArtworks)
-  //queue.add(addAlbumArtworks)
+  queue.add(require('./tasks/fetch-playlists'))
+  queue.add(require('./tasks/download-songs'))
+  queue.add(require('./tasks/download-album-artworks'))
+  queue.add(require('./tasks/optimize-tags'))
+  queue.add(require('./tasks/add-album-artworks'))
 }
 
 export function schedule() {

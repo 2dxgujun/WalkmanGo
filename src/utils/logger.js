@@ -1,6 +1,6 @@
 import log4js from 'log4js'
 
-export default class {
+export default class Logger {
   constructor(category) {
     this.innerLogger = log4js.getLogger(category)
   }
@@ -21,3 +21,7 @@ export default class {
     this.innerLogger.error(...arguments)
   }
 }
+
+const Log = new Logger('')
+
+export { Log }

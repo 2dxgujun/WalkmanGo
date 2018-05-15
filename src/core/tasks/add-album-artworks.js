@@ -1,7 +1,7 @@
 import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import fse from 'fs-extra'
-import flac from 'node-flac'
+import FLAC from 'node-flac'
 import ID3v2 from 'node-id3'
 import sharp from 'sharp'
 import Processor from '../../utils/promise-processor'
@@ -12,14 +12,11 @@ Promise.promisifyAll(ID3v2)
 const Log = new Logger('ADD_ALBUM_ART')
 
 export default function() {
-  Log.d('Start add album art')
+  Log.d('Start add album artworks')
   return prepare()
     .then(run)
-    .then(() => {
-      Log.d('Done add album art')
-    })
     .catch(err => {
-      return Log.e('Uncaught Error when add album art', err)
+      return Log.e('Uncaught Error when add album artworks', err)
     })
 }
 
@@ -29,7 +26,7 @@ function prepare() {
     include: [
       {
         model: Local,
-        as: 'audio'
+        as: 'audios'
       },
       {
         model: Album,
@@ -37,18 +34,20 @@ function prepare() {
         include: [
           {
             model: Local,
-            as: 'art'
+            as: 'artwork'
           }
         ]
       }
     ]
   })
     .map(song => {
-      if (song.audio && song.album && song.album.art) {
-        return isAlbumArtAdded(song).then(added => {
-          if (!added) {
-            return prepareAddAlbumArt(processor, song)
-          }
+      if (song.album && song.album.artwork) {
+        song.audios.filter(audio => !isAlbumArtworkAdded).forEach(audio => {
+          return processor.add(() => {
+            return addAlbumArtwork(audio, album).catch(err => {
+              Log.e(`Add album artwork failed: ${song.name}`, err)
+            })
+          })
         })
       }
     })
@@ -59,86 +58,76 @@ function run(processor) {
   return processor.run()
 }
 
-function prepareAddAlbumArt(processor, song) {
-  return processor.add(() => {
-    return addAlbumArt(song).catch(err => {
-      Log.e(`Add album art failed: ${song.name}`, err)
-    })
-  })
-}
-
-function addAlbumArt(song) {
+function addAlbumArtwork(audio, album) {
   if (song.audio.mimeType === 'audio/flac') {
-    return addAlbumArtFlac(song)
+    return addAlbumArtwork__FLAC(audio, album)
   } else if (song.audio.mimeType === 'audio/mp3') {
-    return addAlbumArtMp3(song)
+    return addAlbumArtwork__MP3(audio, album)
   } else {
     throw new Error('Unknown audio format')
   }
 }
 
-function addAlbumArtFlac(song) {
-  return flac.metadata_object
-    .new(flac.format.MetadataType['PICTURE'])
+function addAlbumArtwork__FLAC(audio, album) {
+  return FLAC.metadata_object
+    .new(FLAC.format.MetadataType['PICTURE'])
     .then(obj => {
       return fse
-        .readFile(song.album.art.path)
+        .readFile(album.artwork.path)
         .then(data => {
           return Promise.join(
-            flac.metadata_object.picture_set_mime_type(
+            FLAC.metadata_object.picture_set_mime_type(
               obj,
-              song.album.art.mimeType
+              album.artwork.mimeType
             ),
-            flac.metadata_object.picture_set_data(obj, data)
+            FLAC.metadata_object.picture_set_data(obj, data)
           )
         })
         .then(() => {
-          return sharp(song.album.art.path).metadata()
+          return sharp(album.artwork.path).metadata()
         })
         .then(metadata => {
           obj.data.type =
-            flac.format.StreamMetadata_Picture_Type['Cover (front)']
+            FLAC.format.StreamMetadata_Picture_Type['Cover (front)']
           obj.data.width = metadata.width
           obj.data.height = metadata.height
           obj.data.depth = metadata.channels * 8 // 8 bit depth
         })
         .then(() => {
-          return flac.metadata_object.picture_is_legal(obj)
+          return FLAC.metadata_object.picture_is_legal(obj)
         })
         .return(obj)
     })
     .then(picture => {
-      return flac.metadata.new().then(it => {
-        return flac.metadata
-          .init(it, song.audio.path, false, false)
-          .then(() => {
-            return flac.metadata.insert_block_after(it, picture, true)
-          })
+      return FLAC.metadata.new().then(it => {
+        return FLAC.metadata.init(it, audio.path, false, false).then(() => {
+          return FLAC.metadata.insert_block_after(it, picture, true)
+        })
       })
     })
 }
 
-function addAlbumArtMp3(song) {
+function addAlbumArtwork_MP3(audio, album) {
   return ID3v2.updateAsync(
     {
-      image: song.album.art.path
+      image: album.artwork.path
     },
-    song.audio.path
+    audio.path
   )
 }
 
-function isAlbumArtAdded(song) {
+function isAlbumArtworkAdded(audio) {
   if (song.audio.mimeType === 'audio/flac') {
-    return isAlbumArtAddedFlac(song)
+    return isAlbumArtworkAdded__FLAC(audio)
   } else if (song.audio.mimeType === 'audio/mp3') {
-    return isAlbumArtAddedMp3(song)
+    return isAlbumArtworkAdded__MP3(audio)
   } else {
     throw new Error('Unknown audio format')
   }
 }
 
-function isAlbumArtAddedMp3(song) {
-  return ID3v2.readAsync(song.audio.path).then(tags => {
+function isAlbumArtworkAdded_MP3(audio) {
+  return ID3v2.readAsync(audio.path).then(tags => {
     if (tags['image']) {
       return true
     }
@@ -146,15 +135,15 @@ function isAlbumArtAddedMp3(song) {
   })
 }
 
-function isAlbumArtAddedFlac(song) {
-  return flac.metadata.new().then(it => {
-    return flac.metadata.init(it, song.audio.path, true, false).then(() => {
+function isAlbumArtworkAdded_FLAC(audio) {
+  return FLAC.metadata.new().then(it => {
+    return FLAC.metadata.init(it, song.audio.path, true, false).then(() => {
       function isPictureBlockExistsRecursive(it) {
-        return flac.metadata.get_block_type(it).then(type => {
-          if (type === flac.format.MetadataType['PICTURE']) {
+        return FLAC.metadata.get_block_type(it).then(type => {
+          if (type === FLAC.format.MetadataType['PICTURE']) {
             return true
           }
-          return flac.metadata.next(it).then(r => {
+          return FLAC.metadata.next(it).then(r => {
             if (r) return isPictureBlockExistsRecursive(it)
             return false
           })

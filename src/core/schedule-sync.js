@@ -4,15 +4,12 @@ import Logger from '../utils/logger'
 
 var job = null
 
-const Log = new Logger('SCHEDULE')
+const Log = new Logger('Schedule')
 
-function enqueueTasks() {
+function enqueue() {
   if (queue.getPendingLength() > 0) {
-    Log.d('Current have pending promises, nothing enqueued')
     return
   }
-  Log.d('Enqueue tasks')
-
   queue.add(require('./tasks/fetch-playlists'))
   queue.add(require('./tasks/download-songs'))
   queue.add(require('./tasks/download-album-artworks'))
@@ -22,7 +19,7 @@ function enqueueTasks() {
 
 export function schedule() {
   if (job) {
-    Log.d('Re schedule')
+    Log.d('Re-Schedule')
     return Promise.try(() => {
       job.start()
     })
@@ -38,7 +35,7 @@ export function schedule() {
     .then(() => {
       job = new CronJob(
         `00 */5 * * * *`,
-        enqueueTasks,
+        enqueue,
         null, // onComplete
         true, // start now
         'Asia/Shanghai',

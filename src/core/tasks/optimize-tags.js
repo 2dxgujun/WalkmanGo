@@ -5,10 +5,9 @@ import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import Processor from '../../utils/promise-processor'
 import Logger from '../../utils/logger'
+import { ID_OPTIMIZED, ID_BITRATE } from '../consts'
 
 Promise.promisifyAll(ID3v2)
-
-const ID_OPTIMIZED = 'WG_OPT'
 
 const Log = new Logger('OPTIMIZE')
 
@@ -38,7 +37,7 @@ function prepare() {
   })
     .map(song => {
       song.audios.filter(audio => !isOptimized).forEach(audio => {
-        return processor.add(() => {
+        processor.add(() => {
           Log.d(`Optimizing: ${audio.path}`)
           return optimize(audio, song).catch(err => {
             Log.e(`Optimize failed: ${audio.path}`, err)
@@ -128,10 +127,16 @@ function optimize_MP3(audio, song) {
           title: song.name,
           artist: song.artists[0].name,
           album: 'Unknown',
-          private: {
-            owner: ID_OPTIMIZED,
-            data: 'true'
-          }
+          private: [
+            {
+              owner: ID_OPTIMIZED,
+              data: 'true'
+            },
+            {
+              owner: ID_BITRATE,
+              data: audio.SongAudio.bitrate
+            }
+          ]
         },
         audio.path
       )

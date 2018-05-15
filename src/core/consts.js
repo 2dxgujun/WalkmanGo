@@ -1,0 +1,4 @@
+export default {
+  ID_OPTIMIZED: 'WG_OPTIMIZED',
+  ID_BITRATE: 'WG_BITRATE'
+}

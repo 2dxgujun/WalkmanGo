@@ -1,29 +1,29 @@
 import fse from 'fs-extra'
-import path from 'path'
 import ini from 'ini'
 import Bluebird from 'bluebird'
 import program from 'commander'
-import Logger from './utils/logger'
 import untildify from 'untildify'
 
-import { schedule as scheduleSync } from './core/schedule-sync'
+import { schedule } from './core/schedule-sync'
 import initDetection from './core/init-detection'
 import pkg from '../package.json'
 
 global.Promise = Bluebird
 
 function setup(config) {
-  const { workdir, bitrate } = config.general
-  const { uin, playlists } = config.personal
-  process.env.walkman_config_workdir = untildify(workdir)
-  process.env.walkman_config_bitrate = bitrate
-  process.env.walkman_config_uin = uin
-  process.env.walkman_config_playlists = playlists
-  const configure = require('./core/configure-logger').default
-  return Promise.join(
-    fse.ensureDir(process.env.walkman_config_workdir),
-    configure()
-  )
+  const configureLogger = require('./core/configure-logger').default
+  return fse.ensureDir(process.env.WALKMAN_GO_WORKDIR).then(configureLogger)
+}
+
+function parse(data) {
+  return ini.parse(data).then(cfg => {
+    const { workdir, bitrate } = cfg.general
+    const { uin, playlists } = cfg.personal
+    process.env.WALKMAN_GO_WORKDIR = untildify(workdir)
+    process.env.WALKMAN_GO_BITRATE = bitrate
+    process.env.WALKMAN_GO_UIN = uin
+    process.env.WALKMAN_GO_PLAYLISTS = playlists
+  })
 }
 
 program
@@ -36,9 +36,9 @@ program
 
 fse
   .readFile(program.config || './walkman-go.ini', 'utf-8')
-  .then(ini.parse)
+  .then(parse)
   .then(setup)
-  .then(scheduleSync)
+  .then(schedule)
   .then(initDetection)
   .catch(err => {
     console.log(err.message)

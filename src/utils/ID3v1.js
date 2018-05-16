@@ -1,8 +1,8 @@
 import fse from 'fs-extra'
 
-export function removeTagsAsync(filepath) {
+function removeTagsAsync(filepath) {
   return fse.readFile(filepath).then(data => {
-    const tagPosition = data.indexOf('TAG')
+    const tagPosition = data.lastIndexOf('TAG')
     const tagLength = data.length - tagPosition
     if (tagPosition !== -1 && tagLength === 128) {
       return fse
@@ -14,4 +14,8 @@ export function removeTagsAsync(filepath) {
       return false
     }
   })
+}
+
+export default {
+  removeTagsAsync
 }

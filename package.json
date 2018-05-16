@@ -30,7 +30,7 @@
     "log4js": "^2.5.3",
     "mp3-duration": "^1.1.0",
     "node-fetch": "^2.1.2",
-    "node-flac": "github:2dxgujun/node-flac#v0.0.1",
+    "node-flac": "github:2dxgujun/node-flac#v0.0.3",
     "node-id3": "github:2dxgujun/node-id3",
     "promise-queue": "^2.2.5",
     "sequelize": "^4.37.6",

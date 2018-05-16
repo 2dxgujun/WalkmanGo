@@ -80,7 +80,7 @@ function addAudio(song, audiopath) {
       },
       { transaction: t }
     ).then(audio => {
-      return song.findTargetBitrate().then(bitrate => {
+      return song.getTargetBitrate().then(bitrate => {
         return song.addAudio(audio, {
           through: { bitrate },
           transaction: t

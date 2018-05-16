@@ -20,39 +20,49 @@ export default function() {
 
 function prepare() {
   const processor = Processor.create()
-  return Song.all({
+  return Playlist.all({
     include: [
       {
-        model: Local,
-        as: 'audios'
-      },
-      {
-        model: Album,
-        as: 'album',
+        model: Song,
+        as: 'songs',
         include: [
           {
+            model: Album,
+            as: 'album',
+            include: [
+              {
+                model: Local,
+                as: 'artwork'
+              }
+            ]
+          },
+          {
             model: Local,
-            as: 'artwork'
+            as: 'audios'
           }
         ]
       }
     ]
   })
-    .map(song => {
-      const { WALKMAN_GO_BITRATE: bitrate } = process.env
-      if (song.album && song.album.artwork) {
-        return Promise.filter(song.audios, audio => {
-          return (
-            audio.SongAudio.bitrate === bitrate && !isAlbumArtworkAdded(audio)
-          )
-        }).map(audio => {
-          return processor.add(() => {
-            return addAlbumArtwork(audio, album).catch(err => {
-              Log.e(`Add album artwork failed: ${song.name}`, err)
-            })
+    .map(playlist => {
+      return Promise.map(playlist.songs, song => {
+        if (song.album && song.album.artwork) {
+          return song.findTargetAudio().then(audio => {
+            if (audio) {
+              return isAlbumArtworkAdded(audio).then(added => {
+                if (!added) {
+                  return processor.add(() => {
+                    Log.d(`Adding: ${song.name}`)
+                    return addAlbumArtwork(audio, song.album).catch(err => {
+                      Log.e(`Add album artwork failed: ${song.name}`, err)
+                    })
+                  })
+                }
+              })
+            }
           })
-        })
-      }
+        }
+      })
     })
     .return(processor)
 }
@@ -62,9 +72,9 @@ function run(processor) {
 }
 
 function addAlbumArtwork(audio, album) {
-  if (song.audio.mimeType === 'audio/flac') {
+  if (audio.mimeType === 'audio/flac') {
     return addAlbumArtwork__FLAC(audio, album)
-  } else if (song.audio.mimeType === 'audio/mp3') {
+  } else if (audio.mimeType === 'audio/mp3') {
     return addAlbumArtwork__MP3(audio, album)
   } else {
     throw new Error('Unknown audio format')
@@ -73,7 +83,7 @@ function addAlbumArtwork(audio, album) {
 
 function addAlbumArtwork__FLAC(audio, album) {
   return FLAC.metadata_object
-    .new(FLAC.format.MetadataType['PICTURE'])
+    .new(FLAC.MetadataType['PICTURE'])
     .then(obj => {
       return fse
         .readFile(album.artwork.path)
@@ -87,14 +97,13 @@ function addAlbumArtwork__FLAC(audio, album) {
           )
         })
         .then(() => {
-          return sharp(album.artwork.path).metadata_simple_iterator()
+          return sharp(album.artwork.path).metadata()
         })
-        .then(metadata_simple_iterator => {
-          obj.data.type =
-            FLAC.format.StreamMetadata_Picture_Type['Cover (front)']
-          obj.data.width = metadata_simple_iterator.width
-          obj.data.height = metadata_simple_iterator.height
-          obj.data.depth = metadata_simple_iterator.channels * 8 // 8 bit depth
+        .then(metadata => {
+          obj.data.type = FLAC.StreamMetadata_Picture_Type['Cover (front)']
+          obj.data.width = metadata.width
+          obj.data.height = metadata.height
+          obj.data.depth = metadata.channels * 8 // 8 bit depth
         })
         .then(() => {
           return FLAC.metadata_object.picture_is_legal(obj)
@@ -103,14 +112,20 @@ function addAlbumArtwork__FLAC(audio, album) {
     })
     .then(picture => {
       return FLAC.metadata_simple_iterator.new().then(it => {
-        return FLAC.metadata_simple_iterator.init(it, audio.path, false, false).then(() => {
-          return FLAC.metadata_simple_iterator.insert_block_after(it, picture, true)
-        })
+        return FLAC.metadata_simple_iterator
+          .init(it, audio.path, false, false)
+          .then(() => {
+            return FLAC.metadata_simple_iterator.insert_block_after(
+              it,
+              picture,
+              true
+            )
+          })
       })
     })
 }
 
-function addAlbumArtwork_MP3(audio, album) {
+function addAlbumArtwork__MP3(audio, album) {
   return ID3v2.updateAsync(
     {
       image: album.artwork.path
@@ -120,16 +135,16 @@ function addAlbumArtwork_MP3(audio, album) {
 }
 
 function isAlbumArtworkAdded(audio) {
-  if (song.audio.mimeType === 'audio/flac') {
+  if (audio.mimeType === 'audio/flac') {
     return isAlbumArtworkAdded__FLAC(audio)
-  } else if (song.audio.mimeType === 'audio/mp3') {
+  } else if (audio.mimeType === 'audio/mp3') {
     return isAlbumArtworkAdded__MP3(audio)
   } else {
     throw new Error('Unknown audio format')
   }
 }
 
-function isAlbumArtworkAdded_MP3(audio) {
+function isAlbumArtworkAdded__MP3(audio) {
   return ID3v2.readAsync(audio.path).then(tags => {
     if (tags['image']) {
       return true
@@ -138,21 +153,23 @@ function isAlbumArtworkAdded_MP3(audio) {
   })
 }
 
-function isAlbumArtworkAdded_FLAC(audio) {
+function isAlbumArtworkAdded__FLAC(audio) {
   return FLAC.metadata_simple_iterator.new().then(it => {
-    return FLAC.metadata_simple_iterator.init(it, song.audio.path, true, false).then(() => {
-      function isPictureBlockExistsRecursive(it) {
-        return FLAC.metadata_simple_iterator.get_block_type(it).then(type => {
-          if (type === FLAC.format.MetadataType['PICTURE']) {
-            return true
-          }
-          return FLAC.metadata_simple_iterator.next(it).then(r => {
-            if (r) return isPictureBlockExistsRecursive(it)
-            return false
+    return FLAC.metadata_simple_iterator
+      .init(it, audio.path, true, false)
+      .then(() => {
+        function isPictureBlockExistsRecursive(it) {
+          return FLAC.metadata_simple_iterator.get_block_type(it).then(type => {
+            if (type === FLAC.MetadataType['PICTURE']) {
+              return true
+            }
+            return FLAC.metadata_simple_iterator.next(it).then(r => {
+              if (r) return isPictureBlockExistsRecursive(it)
+              return false
+            })
           })
-        })
-      }
-      return isPictureBlockExistsRecursive(it)
-    })
+        }
+        return isPictureBlockExistsRecursive(it)
+      })
   })
 }

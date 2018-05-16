@@ -1,11 +1,27 @@
 import path from 'path'
 
-export function getWalkmanRootPath(mountpoint) {
-  return Promise.resolve(path.resolve(mountpoint, 'MUSIC'))
+var walkmanMountpoint = null
+
+export function setWalkmanMountpoint(mountpoint) {
+  walkmanMountpoint = mountpoint
 }
 
-export function getWalkmanGoPath(mountpoint) {
-  return getWalkmanRootPath(mountpoint).then(walkmanRootPath => {
-    return path.resolve(walkmanRootPath, 'WALKMANGO')
-  })
+export function getWalkmanMountpoint() {
+  return walkmanMountpoint
+}
+
+export function getWalkmanRootPath(mountpoint = getWalkmanMountpoint()) {
+  if (mountpoint) {
+    return Promise.resolve(path.resolve(mountpoint.path, 'MUSIC'))
+  }
+  return Promise.reject('Walkman mountpoint not found')
+}
+
+export function getWalkmanGoPath(mountpoint = getWalkmanMountpoint()) {
+  if (mountpoint) {
+    return getWalkmanRootPath(mountpoint).then(walkmanRootPath => {
+      return path.resolve(walkmanRootPath, 'WALKMANGO')
+    })
+  }
+  return Promise.reject('Walkman mountpoint not found')
 }

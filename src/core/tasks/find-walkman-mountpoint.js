@@ -3,7 +3,7 @@ import inquirer from 'inquirer'
 import fse from 'fs-extra'
 import path from 'path'
 import { Log } from '../../utils/logger'
-import { getWalkmanGoPath } from '../walkman-path'
+import { setWalkmanMountpoint, getWalkmanGoPath } from '../walkman-path'
 
 Promise.promisifyAll(drivelist)
 
@@ -30,7 +30,11 @@ export default function() {
         })
     })
     .then(mountpoint => {
-      process.env.WALKMAN_GO_MOUNTPOINT = mountpoint
+      setWalkmanMountpoint(mountpoint)
+      return getWalkmanGoPath().then(fse.ensureDir)
+    })
+    .catch(err => {
+      console.error(err)
     })
 }
 

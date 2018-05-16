@@ -4,7 +4,7 @@ import Bluebird from 'bluebird'
 import program from 'commander'
 import untildify from 'untildify'
 
-import { schedule } from './core/schedule-sync'
+import { schedule } from './core/schedule'
 import initDetection from './core/init-detection'
 import pkg from '../package.json'
 

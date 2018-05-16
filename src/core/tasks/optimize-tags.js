@@ -6,7 +6,7 @@ import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import Processor from '../../utils/promise-processor'
 import { Log } from '../../utils/logger'
 import { ID_OPTIMIZED, ID_BITRATE } from '../consts'
-import { isOptimized } from '../helper'
+import { isOptimized, findVorbisComment } from '../helper'
 
 Promise.promisifyAll(ID3v2)
 
@@ -62,18 +62,6 @@ function prepare() {
 
 function run(processor) {
   return processor.run()
-}
-
-function findVorbisComment(it) {
-  return FLAC.metadata_simple_iterator.get_block_type(it).then(type => {
-    if (type === FLAC.MetadataType['VORBIS_COMMENT']) {
-      return FLAC.metadata_simple_iterator.get_block(it)
-    }
-    return FLAC.metadata_simple_iterator.next(it).then(r => {
-      if (r) return findVorbisComment(it)
-      return null
-    })
-  })
 }
 
 function optimize(audio, playlist, song) {

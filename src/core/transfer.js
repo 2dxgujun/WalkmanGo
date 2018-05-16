@@ -1,22 +1,8 @@
 import queue from './the-queue'
 
-var isCanceled = false
-
 export function transfer() {
-  isCanceled = false
-  return queue.add(run)
-}
-
-export function cancelTransfer() {
-  isCanceled = true
-  return Promise.resolve()
-}
-
-function run() {
-  if (isCanceled) {
-    return Promise.resolve()
-  } else {
-    const { transferSongs, createPlaylists } = require('./tasks')
-    return transferSongs().then(createPlaylists)
-  }
+  queue.add(require('./tasks/find-walkman-mountpoint').default)
+  queue.add(require('./tasks/transfer-songs').default)
+  //queue.add(require('./tasks/create-playlists').default)
+  return queue.add(() => {})
 }

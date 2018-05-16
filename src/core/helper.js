@@ -3,7 +3,7 @@ import ID3v2 from 'node-id3'
 import FLAC from 'node-flac'
 import { ID_OPTIMIZED } from './consts'
 
-function isOptimized(audio) {
+export function isOptimized(audio) {
   if (audio.mimeType === 'audio/flac') {
     return isOptimized__FLAC(audio)
   } else if (audio.mimeType === 'audio/mp3') {
@@ -11,6 +11,18 @@ function isOptimized(audio) {
   } else {
     throw new Error('Unknown audio format')
   }
+}
+
+export function findVorbisComment(it) {
+  return FLAC.metadata_simple_iterator.get_block_type(it).then(type => {
+    if (type === FLAC.MetadataType['VORBIS_COMMENT']) {
+      return FLAC.metadata_simple_iterator.get_block(it)
+    }
+    return FLAC.metadata_simple_iterator.next(it).then(r => {
+      if (r) return findVorbisComment(it)
+      return null
+    })
+  })
 }
 
 function isOptimized__FLAC(audio) {

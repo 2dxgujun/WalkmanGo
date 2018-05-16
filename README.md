@@ -1,4 +1,4 @@
-# Walkman Go (beta)
+# Walkman Go
 
 > A CLI for sync playlists to Sony Walkman device
 

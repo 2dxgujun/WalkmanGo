@@ -1,6 +1,6 @@
 {
   "name": "walkman-go",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Sync online playlists to Sony Walkman",
   "main": "dist/index.js",
   "scripts": {

@@ -6,6 +6,7 @@ import ID3v2 from 'node-id3'
 import sharp from 'sharp'
 import Processor from '../../utils/promise-processor'
 import { Log } from '../../utils/logger'
+import { isOptimized } from '../helper'
 
 Promise.promisifyAll(ID3v2)
 
@@ -49,13 +50,17 @@ function prepare() {
         if (song.album && song.album.artwork) {
           return song.findTargetAudio().then(audio => {
             if (audio) {
-              return isAlbumArtworkAdded(audio).then(added => {
-                if (!added) {
-                  return processor.add(() => {
-                    Log.d(`Adding: ${song.name}`)
-                    return addAlbumArtwork(audio, song.album).catch(err => {
-                      Log.e(`Add album artwork failed: ${song.name}`, err)
-                    })
+              return isOptimized(audio).then(optimized => {
+                if (optimized) {
+                  return isAlbumArtworkAdded(audio).then(added => {
+                    if (!added) {
+                      return processor.add(() => {
+                        Log.d(`Adding: ${song.name}`)
+                        return addAlbumArtwork(audio, song.album).catch(err => {
+                          Log.e(`Add album artwork failed: ${song.name}`, err)
+                        })
+                      })
+                    }
                   })
                 }
               })

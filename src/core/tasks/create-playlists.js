@@ -1,28 +1,20 @@
-import flac from 'node-flac'
+import FLAC from 'node-flac'
 import mp3duration from 'mp3-duration'
 import M3UWriter from '../../utils/m3u-writer'
 import fse from 'fs-extra'
 import path from 'path'
 import Processor from '../../utils/promise-processor'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
-import {
-  ensureMountpoint,
-  getWalkmanGoPath,
-  getWalkmanRootPath
-} from '../walkman-path'
 import StringToStream from 'string-to-stream'
-import Logger from '../../utils/logger'
+import { Log } from '../../utils/logger'
+import { getWalkmanGoPath, getWalkmanRootPath } from '../walkman-path'
 
 const mp3durationAsync = Promise.promisify(mp3duration)
-const Log = new Logger('CREATE_PLAYLISTS')
 
 export default function() {
   Log.d('Start create playlists')
   return prepare()
     .then(run)
-    .then(() => {
-      Log.d('Done create playlists')
-    })
     .catch(err => {
       Log.d('Uncaught Error when create playlists', err)
     })
@@ -30,17 +22,27 @@ export default function() {
 
 function prepare() {
   const processor = Processor.create()
-  return ensureMountpoint()
-    .then(mountpoint => {
-      return getWalkmanGoPath(mountpoint).then(walkmanGoPath => {
-        return fse.readdir(walkmanGoPath).map(dir => {
-          return processor.add(() => {
-            Log.d(`Create playlist ${dir}`)
-            return createPlaylist(mountpoint, dir).catch(err => {
-              Log.e(`Create playlist failed`, err)
-            })
+  return getWalkmanGoPath()
+    .then(walkmanGoPath => {
+      return fse.readdir(walkmanGoPath).map(playlistDir => {
+        return processor.add(() => {
+          Log.d(`Creating playlist: ${playlistDir}`)
+          return create(playlistDir).catch(err => {
+            Log.e(`Failed to create playlist: ${playlistDir}`, err)
           })
         })
+      })
+    })
+    .then(() => {
+      return getWalkmanRootPath().then(walkmanRootPath => {
+        return fse
+          .readdir(walkmanRootPath)
+          .filter(file => {
+            return file.endsWith('.m3u')
+          })
+          .map(playlistFile => {
+            return fse.remove(path.resolve(walkmanRootPath, playlistFile))
+          })
       })
     })
     .return(processor)
@@ -50,9 +52,9 @@ function run(processor) {
   return processor.run()
 }
 
-function createPlaylist(mountpoint, name) {
+function create(name) {
   const writer = new M3UWriter()
-  return getWalkmanGoPath(mountpoint).then(walkmanGoPath => {
+  return getWalkmanGoPath().then(walkmanGoPath => {
     const playlistPath = path.resolve(walkmanGoPath, name)
     return fse
       .readdir(playlistPath)
@@ -65,7 +67,7 @@ function createPlaylist(mountpoint, name) {
         })
       })
       .then(() => {
-        return getWalkmanRootPath(mountpoint).then(walkmanRootPath => {
+        return getWalkmanRootPath().then(walkmanRootPath => {
           const dest = path.resolve(walkmanRootPath, `${name}.m3u`)
           const tmppath = `${dest}.tmp`
           return new Promise((resolve, reject) => {
@@ -87,34 +89,36 @@ function createPlaylist(mountpoint, name) {
 
 function getAudioDuration(audiopath) {
   if (path.extname(audiopath) === '.flac') {
-    return getAudioDurationFlac(audiopath)
+    return getAudioDuration__FLAC(audiopath)
   } else if (path.extname(audiopath) === '.mp3') {
-    return getAudioDurationMp3(audiopath)
+    return getAudioDuration__MP3(audiopath)
   } else {
     throw new Error('Unknown audio format')
   }
 }
 
 function getAudioStreamInfo(audiopath) {
-  return flac.metadata.new().then(it => {
-    return flac.metadata.init(it, audiopath, true, false).then(() => {
-      function findStreamInfoRecursive(it) {
-        return flac.metadata.get_block_type(it).then(type => {
-          if (type === flac.format.MetadataType['STREAMINFO']) {
-            return flac.metadata.get_block(it)
-          }
-          return flac.metadata.next(it).then(r => {
-            if (r) return findStreamInfoRecursive(it)
-            return null
+  return FLAC.metadata_simple_iterator.new().then(it => {
+    return FLAC.metadata_simple_iterator
+      .init(it, audiopath, true, false)
+      .then(() => {
+        function findStreamInfoRecursive(it) {
+          return FLAC.metadata_simple_iterator.get_block_type(it).then(type => {
+            if (type === FLAC.MetadataType['STREAMINFO']) {
+              return FLAC.metadata_simple_iterator.get_block(it)
+            }
+            return FLAC.metadata_simple_iterator.next(it).then(r => {
+              if (r) return findStreamInfoRecursive(it)
+              return null
+            })
           })
-        })
-      }
-      return findStreamInfoRecursive(it)
-    })
+        }
+        return findStreamInfoRecursive(it)
+      })
   })
 }
 
-function getAudioDurationFlac(audiopath) {
+function getAudioDuration__FLAC(audiopath) {
   return getAudioStreamInfo(audiopath).then(info => {
     if (info) {
       return parseInt(info.data.total_samples / info.data.sample_rate)
@@ -123,7 +127,7 @@ function getAudioDurationFlac(audiopath) {
   })
 }
 
-function getAudioDurationMp3(audiopath) {
+function getAudioDuration__MP3(audiopath) {
   return mp3durationAsync(audiopath).then(duration => {
     return parseInt(duration)
   })

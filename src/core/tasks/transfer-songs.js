@@ -31,7 +31,17 @@ function prepare() {
 }
 
 function run(processor) {
-  return processor.run()
+  return processor.run().then(() => {
+    return getWalkmanGoPath().then(walkmanGoPath => {
+      return fse.readdir(walkmanGoPath).map(playlistDir => {
+        const playlistPath = path.resolve(walkmanGoPath, playlistDir)
+        return fse.readdir(playlistPath).then(files => {
+          // If playlist dir is empty
+          if (!files.length) return fse.remove(playlistPath)
+        })
+      })
+    })
+  })
 }
 
 function prepareCopySongs(processor) {
@@ -66,7 +76,7 @@ function prepareCopySongs(processor) {
             if (exists) {
               return getAudioBitrate(walkmanAudioPath).then(bitrate => {
                 if (bitrate) {
-                  return bitrate !== process.env.WALKMAN_GO_BITRATE
+                  return bitrate !== audio.SongAudio.bitrate
                 } else {
                   throw new Error('No bitrate information')
                 }

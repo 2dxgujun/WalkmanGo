@@ -1,5 +1,18 @@
 import log4js from 'log4js'
 
+log4js.configure({
+  appenders: {
+    console: {
+      type: 'console'
+    }
+  },
+  categories: {
+    default: {
+      appenders: ['console'],
+      level: 'DEBUG'
+    }
+  }
+})
 export default class Logger {
   constructor(category) {
     this.innerLogger = log4js.getLogger(category)

@@ -14,3 +14,7 @@ new Promise((resolve, reject) => {
   .then(r => {
     console.log(r)
   })
+
+Promise.any([]).then(v => {
+  console.log(v)
+})

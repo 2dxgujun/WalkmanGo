@@ -20,28 +20,35 @@ export default function() {
 
 function prepare() {
   const processor = Processor.create()
-
-  return Song.all({
+  return Playlist.all({
     include: [
       {
-        model: Artist,
-        as: 'artists'
-      },
-      {
-        model: Local,
-        as: 'audios'
+        model: Song,
+        as: 'songs',
+        include: [
+          {
+            model: Artist,
+            as: 'artists'
+          },
+          {
+            model: Local,
+            as: 'audios'
+          }
+        ]
       }
     ]
   })
-    .map(song => {
-      const { WALKMAN_GO_BITRATE: bitrate } = process.env
-      return Promise.filter(song.audios, audio => {
-        return audio.SongAudio.bitrate === bitrate && !isOptimized(audio)
-      }).map(audio => {
-        return processor.add(() => {
-          Log.d(`Optimizing: ${audio.path}`)
-          return optimize(audio, song).catch(err => {
-            Log.e(`Optimize failed: ${audio.path}`, err)
+    .map(playlist => {
+      return Promise.map(playlist.songs, song => {
+        const { WALKMAN_GO_BITRATE: bitrate } = process.env
+        return Promise.filter(song.audios, audio => {
+          return audio.SongAudio.bitrate === bitrate && !isOptimized(audio)
+        }).map(audio => {
+          return processor.add(() => {
+            Log.d(`Optimizing: ${audio.path}`)
+            return optimize(audio, song).catch(err => {
+              Log.e(`Optimize failed: ${audio.path}`, err)
+            })
           })
         })
       })
@@ -65,16 +72,18 @@ function isOptimized(audio) {
 
 function isOptimized__FLAC(audio) {
   return FLAC.metadata_simple_iterator.new().then(it => {
-    return FLAC.metadata_simple_iterator.init(it, audio.path, true, false).then(() => {
-      return findVorbisComment(it).then(block => {
-        if (!block) return false
-        const optmized = block.data.comments.find(comment => {
-          return comment.includes(ID_OPTIMIZED)
+    return FLAC.metadata_simple_iterator
+      .init(it, audio.path, true, false)
+      .then(() => {
+        return findVorbisComment(it).then(block => {
+          if (!block) return false
+          const optmized = block.data.comments.find(comment => {
+            return comment.includes(ID_OPTIMIZED)
+          })
+          if (optimized) return true
+          else return false
         })
-        if (optimized) return true
-        else return false
       })
-    })
   })
 }
 
@@ -146,48 +155,54 @@ function optimize_MP3(audio, song) {
 
 function optimize_FLAC(audio, song) {
   return FLAC.metadata_simple_iterator.new().then(it => {
-    return FLAC.metadata_simple_iterator.init(it, audio.path, false, false).then(() => {
-      return findVorbisComment(it)
-        .then(block => {
-          if (block) {
-            return FLAC.metadata_simple_iterator.delete_block(it, true)
-          }
-        })
-        .then(() => {
-          return FLAC.metadata_object.new(
-            FLAC.format.MetadataType['VORBIS_COMMENT']
-          )
-        })
-        .then(block => {
-          return Promise.all(
-            FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
-              'Title',
-              song.name
-            ),
-            FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
-              'Artist',
-              song.artists[0].name
-            ),
-            FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
-              'Album',
-              'Unknown'
-            ),
-            FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
-              ID_OPTIMIZED,
-              'true'
+    return FLAC.metadata_simple_iterator
+      .init(it, audio.path, false, false)
+      .then(() => {
+        return findVorbisComment(it)
+          .then(block => {
+            if (block) {
+              return FLAC.metadata_simple_iterator.delete_block(it, true)
+            }
+          })
+          .then(() => {
+            return FLAC.metadata_object.new(
+              FLAC.format.MetadataType['VORBIS_COMMENT']
             )
-          )
-            .mapSeries(entry => {
-              return FLAC.metadata_object.vorbiscomment_append_comment(
-                block,
-                entry
+          })
+          .then(block => {
+            return Promise.all(
+              FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
+                'Title',
+                song.name
+              ),
+              FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
+                'Artist',
+                song.artists[0].name
+              ),
+              FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
+                'Album',
+                'Unknown'
+              ),
+              FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
+                ID_OPTIMIZED,
+                'true'
               )
-            })
-            .return(block)
-        })
-        .then(block => {
-          return FLAC.metadata_simple_iterator.insert_block_after(it, block, true)
-        })
-    })
+            )
+              .mapSeries(entry => {
+                return FLAC.metadata_object.vorbiscomment_append_comment(
+                  block,
+                  entry
+                )
+              })
+              .return(block)
+          })
+          .then(block => {
+            return FLAC.metadata_simple_iterator.insert_block_after(
+              it,
+              block,
+              true
+            )
+          })
+      })
   })
 }

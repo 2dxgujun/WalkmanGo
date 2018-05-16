@@ -11,8 +11,7 @@ import pkg from '../package.json'
 global.Promise = Bluebird
 
 function setup() {
-  const configureLogger = require('./core/configure-logger').default
-  return fse.ensureDir(process.env.WALKMAN_GO_WORKDIR).then(configureLogger)
+  return fse.ensureDir(process.env.WALKMAN_GO_WORKDIR)
 }
 
 function parse(data) {

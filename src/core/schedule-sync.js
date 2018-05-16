@@ -8,10 +8,10 @@ function enqueue() {
   if (queue.getPendingLength() > 0) {
     return
   }
-  queue.add(require('./tasks/fetch-playlists'))
-  //queue.add(require('./tasks/download-songs'))
-  //queue.add(require('./tasks/download-album-artworks'))
-  //queue.add(require('./tasks/optimize-tags'))
+  queue.add(require('./tasks/fetch-playlists').default)
+  queue.add(require('./tasks/download-songs').default)
+  queue.add(require('./tasks/download-album-artworks').default)
+  queue.add(require('./tasks/optimize-tags').default)
   //queue.add(require('./tasks/add-album-artworks'))
 }
 

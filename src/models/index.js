@@ -78,4 +78,34 @@ Album.belongsTo(Local, {
   as: 'artwork'
 })
 
+Song.prototype.getTargetBitrate = function() {
+  return Promise.try(() => {
+    const { WALKMAN_GO_BITRATE: bitrate } = process.env
+    if (bitrate === 'flac' && song.sizeflac > 0) {
+      return 'flac'
+    } else if ((bitrate === 'flac' || bitrate === '320') && song.size320 > 0) {
+      return '320'
+    } else if (
+      (bitrate === 'flac' || bitrate === '320' || bitrate === '128') &&
+      song.size128 > 0
+    ) {
+      return '128'
+    } else {
+      throw new Error('Unrecognized bitrate')
+    }
+  })
+}
+
+Song.prototype.findTargetAudio = function() {
+  return Promise.filter(this.audios, audio => {
+    return this.findTargetBitrate().then(bitrate => {
+      if (audio.SongAudio.bitrate === bitrate) return true
+      return false
+    })
+  }).then(audios => {
+    if (audios && !audios.length) return audios[0]
+    return null
+  })
+}
+
 export { Album, Artist, Playlist, Song, Local }

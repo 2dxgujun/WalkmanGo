@@ -18,25 +18,29 @@ export default function() {
 
 function prepare() {
   const processor = Processor.create()
-  return Song.all({
+  return Playlist.all({
     include: [
       {
-        model: Artist,
-        as: 'artists'
-      },
-      {
-        model: Local,
-        as: 'audios'
+        model: Song,
+        as: 'songs',
+        include: [
+          {
+            model: Artist,
+            as: 'artists'
+          },
+          {
+            model: Local,
+            as: 'audios'
+          }
+        ]
       }
     ]
   })
-    .map(song => {
-      return Promise.filter(song.audios, audio => {
-        return audio.SongAudio.bitrate === getTargetBitrate(song)
-      }).then(audios => {
-        if (audios && !audios.length) {
-          return prepareDownload(processor, song)
-        }
+    .map(playlist => {
+      return Promise.map(playlist.songs, song => {
+        return song.findTargetAudio().then(audio => {
+          if (!audio) return prepareDownload(processor, song)
+        })
       })
     })
     .return(processor)
@@ -76,9 +80,11 @@ function addAudio(song, audiopath) {
       },
       { transaction: t }
     ).then(audio => {
-      return song.addAudio(audio, {
-        through: { bitrate: getTargetBitrate(song) },
-        transaction: t
+      return song.findTargetBitrate().then(bitrate => {
+        return song.addAudio(audio, {
+          through: { bitrate },
+          transaction: t
+        })
       })
     })
   })
@@ -87,8 +93,8 @@ function addAudio(song, audiopath) {
 function downloadSong(song) {
   return getLocalAudioPath(song).then(audiopath => {
     const tmppath = `${audiopath}.tmp`
-    return qqmusic
-      .getAudioStream(getRemoteAudioFile(song))
+    return getRemoteAudioFile(song)
+      .then(qqmusic.getAudioStream)
       .then(source => {
         return new Promise((resolve, reject) => {
           const m = meter()
@@ -101,10 +107,12 @@ function downloadSong(song) {
         })
       })
       .then(bytes => {
-        if (getRemoteAudioSize(song) != bytes) {
-          throw new Error('Not match target audio size')
-        }
-        return fse.rename(tmppath, audiopath)
+        return getRemoteAudioSize(song).then(size => {
+          if (size != bytes) {
+            throw new Error('Not match target audio size')
+          }
+          return fse.rename(tmppath, audiopath)
+        })
       })
   })
 }
@@ -121,53 +129,49 @@ function getMimeType(audiopath) {
 }
 
 function getLocalAudioPath(song) {
-  const { WALKMAN_GO_WORKDIR: workdir } = process.env
-  const audiodir = path.resolve(workdir, 'music', getTargetBitrate(song))
-  return fse.ensureDir(audiodir).then(() => {
-    const extname = path.extname(getRemoteAudioFile(song))
-    let artistName = 'Unknown'
-    if (song.artists && song.artists.length > 0) {
-      artistName = `${song.artists[0].name}`
-    }
-    const songfile = `${artistName} - ${song.name}${extname}`.replace('/', ',')
-    return path.resolve(audiodir, songfile)
+  const { WALKMAN_GO_WORKDIR } = process.env
+  return song.getTargetBitrate().then(bitrate => {
+    const audiodir = path.resolve(WALKMAN_GO_WORKDIR, 'music', bitrate)
+    return fse.ensureDir(audiodir).then(() => {
+      return getRemoteAudioFile(song)
+        .then(path.extname)
+        .then(audioext => {
+          let artistName = 'Unknown'
+          if (song.artists && song.artists.length > 0) {
+            artistName = `${song.artists[0].name}`
+          }
+          const audiofile = `${artistName} - ${song.name}${audioext}`.replace(
+            '/',
+            ','
+          )
+          return path.resolve(audiodir, audiofile)
+        })
+    })
   })
 }
 
 function getRemoteAudioSize(song) {
-  switch (getTargetBitrate(song)) {
-    case 'flac':
-      return song.sizeflac
-    case '320':
-      return song.size320
-    case '128':
-      return song.size128
-  }
+  return song.getTargetBitrate().then(bitrate => {
+    switch (bitrate) {
+      case 'flac':
+        return song.sizeflac
+      case '320':
+        return song.size320
+      case '128':
+        return song.size128
+    }
+  })
 }
 
 function getRemoteAudioFile(song) {
-  switch (getTargetBitrate(song)) {
-    case 'flac':
-      return `F000${song.mid}.flac`
-    case '320':
-      return `M800${song.mid}.mp3`
-    case '128':
-      return `M500${song.mid}.mp3`
-  }
-}
-
-function getTargetBitrate(song) {
-  const { WALKMAN_GO_BITRATE: bitrate } = process.env
-  if (bitrate === 'flac' && song.sizeflac > 0) {
-    return 'flac'
-  } else if ((bitrate === 'flac' || bitrate === '320') && song.size320 > 0) {
-    return '320'
-  } else if (
-    (bitrate === 'flac' || bitrate === '320' || bitrate === '128') &&
-    song.size128 > 0
-  ) {
-    return '128'
-  } else {
-    throw new Error('Unrecognized bitrate')
-  }
+  return song.getTargetBitrate().then(bitrate => {
+    switch (bitrate) {
+      case 'flac':
+        return `F000${song.mid}.flac`
+      case '320':
+        return `M800${song.mid}.mp3`
+      case '128':
+        return `M500${song.mid}.mp3`
+    }
+  })
 }

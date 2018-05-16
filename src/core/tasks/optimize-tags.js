@@ -4,12 +4,10 @@ import FLAC from 'node-flac'
 import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import Processor from '../../utils/promise-processor'
-import Logger from '../../utils/logger'
+import { Log } from '../../utils/logger'
 import { ID_OPTIMIZED, ID_BITRATE } from '../consts'
 
 Promise.promisifyAll(ID3v2)
-
-const Log = new Logger('OPTIMIZE')
 
 export default function() {
   Log.d('Start optimize tags')
@@ -36,8 +34,11 @@ function prepare() {
     ]
   })
     .map(song => {
-      song.audios.filter(audio => !isOptimized).forEach(audio => {
-        processor.add(() => {
+      const { WALKMAN_GO_BITRATE: bitrate } = process.env
+      return Promise.filter(song.audios, audio => {
+        return audio.SongAudio.bitrate === bitrate && !isOptimized(audio)
+      }).map(audio => {
+        return processor.add(() => {
           Log.d(`Optimizing: ${audio.path}`)
           return optimize(audio, song).catch(err => {
             Log.e(`Optimize failed: ${audio.path}`, err)
@@ -63,8 +64,8 @@ function isOptimized(audio) {
 }
 
 function isOptimized__FLAC(audio) {
-  return FLAC.metadata.new().then(it => {
-    return FLAC.metadata.init(it, audio.path, true, false).then(() => {
+  return FLAC.metadata_simple_iterator.new().then(it => {
+    return FLAC.metadata_simple_iterator.init(it, audio.path, true, false).then(() => {
       return findVorbisComment(it).then(block => {
         if (!block) return false
         const optmized = block.data.comments.find(comment => {
@@ -78,11 +79,11 @@ function isOptimized__FLAC(audio) {
 }
 
 function findVorbisComment(it) {
-  return FLAC.metadata.get_block_type(it).then(type => {
+  return FLAC.metadata_simple_iterator.get_block_type(it).then(type => {
     if (type === FLAC.format.MetadataType['VORBIS_COMMENT']) {
-      return FLAC.metadata.get_block(it)
+      return FLAC.metadata_simple_iterator.get_block(it)
     }
-    return FLAC.metadata.next(it).then(r => {
+    return FLAC.metadata_simple_iterator.next(it).then(r => {
       if (r) return findVorbisComment(it)
       return null
     })
@@ -144,12 +145,12 @@ function optimize_MP3(audio, song) {
 }
 
 function optimize_FLAC(audio, song) {
-  return FLAC.metadata.new().then(it => {
-    return FLAC.metadata.init(it, audio.path, false, false).then(() => {
+  return FLAC.metadata_simple_iterator.new().then(it => {
+    return FLAC.metadata_simple_iterator.init(it, audio.path, false, false).then(() => {
       return findVorbisComment(it)
         .then(block => {
           if (block) {
-            return FLAC.metadata.delete_block(it, true)
+            return FLAC.metadata_simple_iterator.delete_block(it, true)
           }
         })
         .then(() => {
@@ -185,7 +186,7 @@ function optimize_FLAC(audio, song) {
             .return(block)
         })
         .then(block => {
-          return FLAC.metadata.insert_block_after(it, block, true)
+          return FLAC.metadata_simple_iterator.insert_block_after(it, block, true)
         })
     })
   })

@@ -122,7 +122,7 @@ export function getAudioStream(filename) {
     })
 }
 
-export function getAlbumArtStream(albumId) {
+export function getAlbumArtworkStream(albumId) {
   const id = albumId.toString()
   const sid = parseInt(id.substr(id.length - 2))
   return fetch(

@@ -4,20 +4,15 @@ import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import sharp from 'sharp'
 import path from 'path'
 import fse from 'fs-extra'
-import meter from 'stream-meter'
 import Processor from '../../utils/promise-processor'
-import Logger from '../../utils/logger'
-
-const { walkman_config_workdir: workdir } = process.env
-
-const Log = new Logger('DOWNLOAD')
+import { Log } from '../../utils/logger'
 
 export default function() {
-  Log.d('Start download album art')
+  Log.d('Start download album artwork')
   return prepare()
     .then(run)
     .catch(err => {
-      return Log.e('Uncaught Error when download album art', err)
+      return Log.e('Uncaught Error when download album artwork', err)
     })
 }
 
@@ -65,47 +60,40 @@ function prepareDownload(processor, album) {
 }
 
 function addArtwork(album, artworkPath) {
-  return fse.stat(artworkPath).then(stats => {
-    return sequelize.transaction(t => {
-      return Local.create(
-        {
-          path: artworkPath,
-          mimeType: getMimeType(artworkPath),
-          length: stats.size
-        },
-        { transaction: t }
-      ).then(artwork => {
-        return album.setArtwork(artwork, { transaction: t })
-      })
+  return sequelize.transaction(t => {
+    return Local.create(
+      {
+        path: artworkPath,
+        mimeType: getMimeType(artworkPath)
+      },
+      { transaction: t }
+    ).then(artwork => {
+      return album.setArtwork(artwork, { transaction: t })
     })
   })
 }
 
-function downloadAlbumArt(album) {
+function downloadArtwork(album) {
   return getArtworkPath(album).then(artworkPath => {
     const tmppath = `${artworkPath}.tmp`
     return qqmusic
-      .getAlbumArtStream(album.id)
+      .getAlbumArtworkStream(album.id)
       .then(source => {
         return new Promise((resolve, reject) => {
-          const m = meter()
           const stream = source
             .pipe(
               sharp()
                 .resize(500)
                 .jpeg()
             )
-            .pipe(m)
             .pipe(fse.createWriteStream(tmppath))
           source.on('error', reject)
           stream.on('error', reject)
-          stream.on('finish', () => {
-            resolve(m.bytes)
-          })
+          stream.on('finish', resolve)
         })
       })
-      .then(bytes => {
-        return fse.rename(tmppath, artworkPath).return(bytes)
+      .then(() => {
+        return fse.rename(tmppath, artworkPath)
       })
   })
 }
@@ -120,10 +108,11 @@ function getMimeType(artworkPath) {
 }
 
 function getArtworkPath(album) {
-  const artdir = path.resolve(workdir, 'art')
-  return fse.ensureDir(artdir).then(() => {
-    const artfile = `${album.mid}.jpeg`
-    const artworkPath = path.resolve(artdir, artfile)
+  const { WALKMAN_GO_WORKDIR: workdir } = process.env
+  const artworkDir = path.resolve(workdir, 'artwork')
+  return fse.ensureDir(artworkDir).then(() => {
+    const artworkFile = `${album.mid}.jpeg`
+    const artworkPath = path.resolve(artworkDir, artworkFile)
     return artworkPath
   })
 }

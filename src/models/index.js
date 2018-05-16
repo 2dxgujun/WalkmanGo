@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import Sequelize from 'sequelize'
 
-const { walkman_config_workdir: workdir } = process.env
+const { WALKMAN_GO_WORKDIR: workdir } = process.env
 
 const dbpath = path.resolve(workdir, 'walkman-go.db')
 

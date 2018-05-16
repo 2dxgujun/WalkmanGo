@@ -104,7 +104,7 @@ function downloadSong(song) {
         if (getRemoteAudioSize(song) != bytes) {
           throw new Error('Not match target audio size')
         }
-        return fse.rename(tmppath, audiopath).return(bytes)
+        return fse.rename(tmppath, audiopath)
       })
   })
 }

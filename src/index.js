@@ -10,20 +10,19 @@ import pkg from '../package.json'
 
 global.Promise = Bluebird
 
-function setup(config) {
+function setup() {
   const configureLogger = require('./core/configure-logger').default
   return fse.ensureDir(process.env.WALKMAN_GO_WORKDIR).then(configureLogger)
 }
 
 function parse(data) {
-  return ini.parse(data).then(cfg => {
-    const { workdir, bitrate } = cfg.general
-    const { uin, playlists } = cfg.personal
-    process.env.WALKMAN_GO_WORKDIR = untildify(workdir)
-    process.env.WALKMAN_GO_BITRATE = bitrate
-    process.env.WALKMAN_GO_UIN = uin
-    process.env.WALKMAN_GO_PLAYLISTS = playlists
-  })
+  const cfg = ini.parse(data)
+  const { workdir, bitrate } = cfg.general
+  const { uin, playlists } = cfg.personal
+  process.env.WALKMAN_GO_WORKDIR = untildify(workdir)
+  process.env.WALKMAN_GO_BITRATE = bitrate
+  process.env.WALKMAN_GO_UIN = uin
+  process.env.WALKMAN_GO_PLAYLISTS = playlists
 }
 
 program

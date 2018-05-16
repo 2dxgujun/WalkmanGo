@@ -1,42 +1,26 @@
 import * as qqmusic from '../../vendor/qqmusic'
 import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song } from '../../models'
-import Logger from '../../utils/logger'
-
-const {
-  walkman_config_uin: uin,
-  walkman_config_playlists: playlists
-} = process.env
-
-const Log = new Logger('FETCH')
-
-const includes = playlists.split(',')
+import { Log } from '../../utils/logger'
 
 export default function() {
   Log.d('Start fetch playlists')
   return fetchPlaylists()
     .then(fetchSongs)
     .then(fetchAlbums)
-    .then(() => {
-      Log.d('Done fetch playlists')
-    })
     .catch(err => {
       Log.e('Uncaught Error when fetch playlists: ', err)
     })
 }
 
 function fetchPlaylists() {
+  const { WALKMAN_GO_UIN, WALKMAN_GO_PLAYLISTS } = process.env
   return qqmusic
-    .getPlaylists(uin)
-    .then(playlists => {
-      Log.d('List of remote playlists: ' + playlists.map(p => p.name).join())
-      return playlists
-    })
+    .getPlaylists(WALKMAN_GO_UIN)
     .filter(playlist => {
-      return includes.includes(playlist.name)
+      return WALKMAN_GO_PLAYLISTS.includes(playlist.name)
     })
     .then(playlists => {
-      Log.d('List of playlists will sync: ' + playlists.map(p => p.name).join())
       return Playlist.findAll({
         where: {
           id: {
@@ -44,24 +28,25 @@ function fetchPlaylists() {
           }
         }
       })
-        .then(playlists => {
-          if (playlists && playlists.length > 0) {
-            Log.d(
-              'List of playlists will delete: ' +
-                playlists.map(p => p.name).join()
-            )
-          }
-          return Promise.map(playlists, playlist => destroy)
-        })
-        .then(() => {
-          return sequelize.transaction(t => {
-            return Promise.map(playlists, playlist => {
-              return findThenCreateOrUpdatePlaylist(playlist, {
-                transaction: t
-              })
-            })
+        .map(playlist => {
+          return playlist.destroy().then(() => {
+            Log.d(`Playlist ${playlist.name} removed`)
           })
         })
+        .return(playlists)
+    })
+    .then(playlists => {
+      return sequelize.transaction(t => {
+        return Promise.map(playlists, playlist => {
+          return findThenUpdateOrCreatePlaylist(playlist, {
+            transaction: t
+          }).spread((playlist, created) => {
+            Log.d(
+              `Playlist ${playlist.name} ${created ? 'created' : 'updated'}`
+            )
+          })
+        })
+      })
     })
 }
 
@@ -82,7 +67,7 @@ function fetchSongs() {
                   }
                 })
                 .then(() => {
-                  if (artists && artists.length > 0) {
+                  if (artists && artists.length) {
                     return song.setArtists(artists, { transaction: t })
                   }
                 })
@@ -223,7 +208,7 @@ function findOrCreatePlaylist(playlist, options) {
   })
 }
 
-function findThenCreateOrUpdatePlaylist(playlist, options) {
+function findThenUpdateOrCreatePlaylist(playlist, options) {
   return findOrCreatePlaylist(playlist, options).spread((instance, created) => {
     if (created) return [instance, created]
     return instance

@@ -4,15 +4,8 @@ import sequelize, { Artist, Playlist, Song, Local } from '../../models'
 import path from 'path'
 import fse from 'fs-extra'
 import meter from 'stream-meter'
-import Logger from '../../utils/logger'
+import { Log } from '../../utils/logger'
 import Processor from '../../utils/promise-processor'
-
-const {
-  walkman_config_bitrate: bitrate,
-  walkman_config_workdir: workdir
-} = process.env
-
-const Log = new Logger('DOWNLOAD')
 
 export default function() {
   Log.d('Start download songs')
@@ -38,12 +31,13 @@ function prepare() {
     ]
   })
     .map(song => {
-      const audio = song.audios.find(audio => {
+      return Promise.filter(song.audios, audio => {
         return audio.SongAudio.bitrate === getTargetBitrate(song)
+      }).then(audios => {
+        if (audios && !audios.length) {
+          return prepareDownload(processor, song)
+        }
       })
-      if (!audio) {
-        return prepareDownload(processor, song)
-      }
     })
     .return(processor)
 }
@@ -74,20 +68,17 @@ function prepareDownload(processor, song) {
 }
 
 function addAudio(song, audiopath) {
-  return fse.stat(audiopath).then(stats => {
-    return sequelize.transaction(t => {
-      return Local.create(
-        {
-          path: audiopath,
-          mimeType: getMimeType(audiopath),
-          length: stats.size
-        },
-        { transaction: t }
-      ).then(audio => {
-        return song.addAudio(audio, {
-          through: { bitrate: getTargetBitrate(song) },
-          transaction: t
-        })
+  return sequelize.transaction(t => {
+    return Local.create(
+      {
+        path: audiopath,
+        mimeType: getMimeType(audiopath)
+      },
+      { transaction: t }
+    ).then(audio => {
+      return song.addAudio(audio, {
+        through: { bitrate: getTargetBitrate(song) },
+        transaction: t
       })
     })
   })
@@ -130,6 +121,7 @@ function getMimeType(audiopath) {
 }
 
 function getLocalAudioPath(song) {
+  const { WALKMAN_GO_WORKDIR: workdir } = process.env
   const audiodir = path.resolve(workdir, 'music', getTargetBitrate(song))
   return fse.ensureDir(audiodir).then(() => {
     const extname = path.extname(getRemoteAudioFile(song))
@@ -165,6 +157,7 @@ function getRemoteAudioFile(song) {
 }
 
 function getTargetBitrate(song) {
+  const { WALKMAN_GO_BITRATE: bitrate } = process.env
   if (bitrate === 'flac' && song.sizeflac > 0) {
     return 'flac'
   } else if ((bitrate === 'flac' || bitrate === '320') && song.size320 > 0) {

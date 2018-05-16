@@ -11,11 +11,6 @@ export default function(sequelize, DataTypes) {
         type: DataTypes.STRING,
         allowNull: true,
         field: 'mime_type'
-      },
-      length: {
-        type: DataTypes.INTEGER.UNSIGNED,
-        allowNull: false,
-        field: 'length'
       }
     },
     {

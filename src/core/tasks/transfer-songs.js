@@ -126,20 +126,18 @@ function prepareRemoveSongs(processor) {
     .then(_.flatten)
     .then(walkmanAudioPaths => {
       return getWalkmanGoPath()
-        .then(walkmanGoPath => {
-          return fse
+        .then(walkmanGoPath =>
+          fse
             .readdir(walkmanGoPath)
-            .reduce((accumulator, playlistDir) => {
-              return fse
-                .readdir(path.resolve(walkmanGoPath, playlistDir))
-                .reduce((accumulator, audiofile) => {
-                  accumulator.push(
-                    path.resolve(walkmanGoPath, playlistDir, audiofile)
-                  )
-                  return accumulator
-                }, accumulator)
-            }, [])
-        })
+            .map(file => path.resolve(walkmanGoPath, file))
+        )
+        .map(playlistPath =>
+          fse
+            .readdir(playlistPath)
+            .map(file => path.resolve(playlistPath, file))
+        )
+        .then(_.flatten)
+        .map(audiopath => audiopath.normalize()) // NOTE: Very important for mac fs
         .map(audiopath => {
           if (!walkmanAudioPaths.includes(audiopath)) {
             return processor.add(() => {

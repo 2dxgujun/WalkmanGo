@@ -61,7 +61,7 @@ function create(name) {
       .map(audiofile => {
         const audiopath = path.resolve(playlistPath, audiofile)
         const title = path.basename(audiopath, path.extname(audiopath))
-        const url = `WALKMANGO/${name}/${path.basename(audiopath)}`
+        const url = `WALKMANGO/${name}/${path.basename(audiopath)}`.normalize() // NOTE: normalize is necessary for mac
         return getAudioDuration(audiopath).then(duration => {
           return writer.file(url, duration, title)
         })

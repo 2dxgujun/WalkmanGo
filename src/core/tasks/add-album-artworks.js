@@ -7,6 +7,7 @@ import sharp from 'sharp'
 import Processor from '../../utils/promise-processor'
 import { Log } from '../../utils/logger'
 import { isOptimized } from '../helper'
+import _ from 'lodash'
 
 Promise.promisifyAll(ID3v2)
 
@@ -45,28 +46,27 @@ function prepare() {
       }
     ]
   })
-    .map(playlist => {
-      return Promise.map(playlist.songs, song => {
-        if (song.album && song.album.artwork) {
-          return song.findTargetAudio().then(audio => {
-            if (audio) {
-              return isOptimized(audio).then(optimized => {
-                if (optimized) {
-                  return isAlbumArtworkAdded(audio).then(added => {
-                    if (!added) {
-                      return processor.add(() => {
-                        Log.d(`Adding: ${song.name}`)
-                        return addAlbumArtwork(audio, song.album).catch(err => {
-                          Log.e(`Add album artwork failed: ${song.name}`, err)
-                        })
-                      })
-                    }
-                  })
-                }
-              })
-            }
-          })
+    .map(playlist => playlist.songs)
+    .then(_.flatten)
+    .then(songs => _.uniqBy(songs, 'id'))
+    .then(songs => _.filter(songs, 'album'))
+    .then(songs => _.filter(songs, 'album.artwork'))
+    .map(song => song.findTargetAudio().then(audio => ({ song, audio })))
+    .then(items => _.filter(items, 'audio'))
+    .filter(({ song, audio }) => {
+      return isOptimized(audio).then(optimized => {
+        if (optimized) {
+          return isAlbumArtworkAdded(audio).then(added => !added)
         }
+        return false
+      })
+    })
+    .map(({ song, audio }) => {
+      return processor.add(() => {
+        Log.d(`Adding: ${song.name}`)
+        return addAlbumArtwork(audio, song.album).catch(err => {
+          Log.e(`Add album artwork failed: ${song.name}`, err)
+        })
       })
     })
     .return(processor)

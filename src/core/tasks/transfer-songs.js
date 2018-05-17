@@ -6,6 +6,7 @@ import { Log } from '../../utils/logger'
 import { ID_BITRATE } from '../consts'
 import { getWalkmanGoPath } from '../walkman-path'
 import ID3v2 from 'node-id3'
+import _ from 'lodash'
 
 Promise.promisifyAll(ID3v2)
 
@@ -59,51 +60,44 @@ function prepareCopySongs(processor) {
       }
     ]
   }).map(playlist => {
-    return Promise.reduce(
-      playlist.songs,
-      (accumulator, song) => {
-        return song.findTargetAudio().then(audio => {
-          if (audio) accumulator.push(audio)
-          return accumulator
-        })
-      },
-      []
-    ).map(audio => {
-      return getWalkmanAudioPath(playlist, audio).then(walkmanAudioPath => {
-        return fse
-          .pathExists(walkmanAudioPath)
-          .then(exists => {
-            if (exists) {
-              return getAudioBitrate(walkmanAudioPath).then(bitrate => {
-                if (bitrate) {
-                  return bitrate !== audio.SongAudio.bitrate
-                } else {
-                  throw new Error('No bitrate information')
-                }
-              })
-            }
-            return true
-          })
-          .then(write => {
-            if (write) {
-              return processor.add(() => {
-                Log.d(`Copying: ${walkmanAudioPath}`)
-                return fse
-                  .ensureDir(path.dirname(walkmanAudioPath))
-                  .then(() => {
-                    const tmppath = `${walkmanAudioPath}.tmp`
-                    return fse.copy(audio.path, tmppath).then(() => {
-                      return fse.rename(tmppath, walkmanAudioPath)
+    return Promise.map(playlist.songs, song => song.findTargetAudio())
+      .then(audios => _.filter(audios))
+      .map(audio => {
+        return getWalkmanAudioPath(playlist, audio).then(walkmanAudioPath => {
+          return fse
+            .pathExists(walkmanAudioPath)
+            .then(exists => {
+              if (exists) {
+                return getAudioBitrate(walkmanAudioPath).then(bitrate => {
+                  if (bitrate) {
+                    return bitrate !== audio.SongAudio.bitrate
+                  } else {
+                    throw new Error('No bitrate information')
+                  }
+                })
+              }
+              return true
+            })
+            .then(write => {
+              if (write) {
+                return processor.add(() => {
+                  Log.d(`Copying: ${walkmanAudioPath}`)
+                  return fse
+                    .ensureDir(path.dirname(walkmanAudioPath))
+                    .then(() => {
+                      const tmppath = `${walkmanAudioPath}.tmp`
+                      return fse.copy(audio.path, tmppath).then(() => {
+                        return fse.rename(tmppath, walkmanAudioPath)
+                      })
                     })
-                  })
-                  .catch(err => {
-                    Log.e(`Failed to copy: ${walkmanAudioPath}`, err)
-                  })
-              })
-            }
-          })
+                    .catch(err => {
+                      Log.e(`Failed to copy: ${walkmanAudioPath}`, err)
+                    })
+                })
+              }
+            })
+        })
       })
-    })
   })
 }
 
@@ -122,25 +116,14 @@ function prepareRemoveSongs(processor) {
       }
     ]
   })
-    .reduce((accumulator, playlist) => {
-      return Promise.reduce(
-        playlist.songs,
-        (accumulator, song) => {
-          return song.findTargetAudio().then(audio => {
-            if (audio) {
-              return getWalkmanAudioPath(playlist, audio).then(
-                walkmanAudioPath => {
-                  accumulator.push(walkmanAudioPath)
-                  return accumulator
-                }
-              )
-            }
-            return accumulator
-          })
-        },
-        accumulator
-      )
-    }, [])
+    .map(playlist => {
+      return Promise.all(playlist.songs)
+        .then(songs => _.uniqBy(songs, 'id'))
+        .map(song => song.findTargetAudio())
+        .then(_.filter)
+        .map(audio => getWalkmanAudioPath(playlist, audio))
+    })
+    .then(_.flatten)
     .then(walkmanAudioPaths => {
       return getWalkmanGoPath()
         .then(walkmanGoPath => {

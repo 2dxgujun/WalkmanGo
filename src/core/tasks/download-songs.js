@@ -6,6 +6,7 @@ import fse from 'fs-extra'
 import meter from 'stream-meter'
 import { Log } from '../../utils/logger'
 import Processor from '../../utils/promise-processor'
+import _ from 'lodash'
 
 export default function() {
   Log.d('Start download songs')
@@ -36,11 +37,12 @@ function prepare() {
       }
     ]
   })
-    .map(playlist => {
-      return Promise.map(playlist.songs, song => {
-        return song.findTargetAudio().then(audio => {
-          if (!audio) return prepareDownload(processor, song)
-        })
+    .map(playlist => playlist.songs)
+    .then(_.flatten)
+    .then(songs => _.uniqBy(songs, 'id'))
+    .map(song => {
+      return song.findTargetAudio().then(audio => {
+        if (!audio) return prepareDownload(processor, song)
       })
     })
     .return(processor)

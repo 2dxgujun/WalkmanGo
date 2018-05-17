@@ -7,6 +7,7 @@ import Processor from '../../utils/promise-processor'
 import { Log } from '../../utils/logger'
 import { ID_OPTIMIZED, ID_BITRATE } from '../consts'
 import { isOptimized, findVorbisComment } from '../helper'
+import _ from 'lodash'
 
 Promise.promisifyAll(ID3v2)
 
@@ -39,21 +40,19 @@ function prepare() {
       }
     ]
   })
-    .map(playlist => {
-      return Promise.map(playlist.songs, song => {
-        return song.findTargetAudio().then(audio => {
-          if (audio) {
-            return isOptimized(audio).then(optimized => {
-              if (!optimized) {
-                return processor.add(() => {
-                  Log.d(`Optimizing: ${audio.path}`)
-                  return optimize(audio, playlist, song).catch(err => {
-                    Log.e(`Optimize failed: ${audio.path}`, err)
-                  })
-                })
-              }
-            })
-          }
+    .map(playlist => playlist.songs)
+    .then(_.flatten)
+    .then(songs => _.uniqBy(songs, 'id'))
+    .map(song => song.findTargetAudio().then(audio => ({ song, audio })))
+    .then(items => _.filter(items, 'audio'))
+    .filter(({ song, audio }) => {
+      return isOptimized(audio).then(optimized => !optimized)
+    })
+    .map(({ song, audio }) => {
+      return processor.add(() => {
+        Log.d(`Optimizing: ${audio.path}`)
+        return optimize(audio, song).catch(err => {
+          Log.e(`Optimize failed: ${audio.path}`, err)
         })
       })
     })
@@ -64,17 +63,17 @@ function run(processor) {
   return processor.run()
 }
 
-function optimize(audio, playlist, song) {
+function optimize(audio, song) {
   if (audio.mimeType === 'audio/flac') {
-    return optimize__FLAC(audio, playlist, song)
+    return optimize__FLAC(audio, song)
   } else if (audio.mimeType === 'audio/mp3') {
-    return optimize__MP3(audio, playlist, song)
+    return optimize__MP3(audio, song)
   } else {
     throw new Error('Unknown audio format')
   }
 }
 
-function optimize__MP3(audio, playlist, song) {
+function optimize__MP3(audio, song) {
   return ID3v1.removeTagsAsync(audio.path)
     .then(() => {
       return ID3v2.removeTagsAsync(audio.path)
@@ -83,8 +82,8 @@ function optimize__MP3(audio, playlist, song) {
       return ID3v2.writeAsync(
         {
           title: song.name,
-          artist: song.artists[0].name,
-          album: playlist.name,
+          artist: song.artists.length ? song.artists[0].name : 'Unknown',
+          album: 'Unknown',
           private: [
             {
               owner: ID_OPTIMIZED,
@@ -101,7 +100,7 @@ function optimize__MP3(audio, playlist, song) {
     })
 }
 
-function optimize__FLAC(audio, playlist, song) {
+function optimize__FLAC(audio, song) {
   return FLAC.metadata_simple_iterator.new().then(it => {
     return FLAC.metadata_simple_iterator
       .init(it, audio.path, false, false)
@@ -123,11 +122,11 @@ function optimize__FLAC(audio, playlist, song) {
               ),
               FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
                 'Artist',
-                song.artists[0].name
+                song.artists.length ? song.artists[0].name : 'Unknown'
               ),
               FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
                 'Album',
-                playlist.name
+                'Unknown'
               ),
               FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
                 ID_OPTIMIZED,

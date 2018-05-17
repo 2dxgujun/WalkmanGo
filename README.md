@@ -12,8 +12,8 @@
 * 支持缓存多种bitrate的歌曲（128, 320, flac）
 * 歌曲添加高清专辑封面（QQ音乐在Mac上添加的是图标而不是封面，Walkman是不识别的）
 * 修复编码问题导致部分歌名和歌手名在Walkman设备上出现乱码
-* 移除歌单歌曲的专辑名（避免杂乱的单曲把Walkman上的专辑列表搞乱）
-* 只需要把Walkman设备插入USB就能自动同步歌单
+* 移除歌单歌曲的专辑名（避免杂乱的单曲把Walkman上的专辑列表搞得一团糟）
+* 只需要把Walkman设备插入USB就会自动开始同步歌单
 
 ## Install
 
@@ -23,25 +23,25 @@ $ npm i -g walkman-go
 
 ## Usage
 
-Firstly, install as a global package.
+首先，使用上面的命令安装（安装很慢请耐心等待）
 
-Secondly, create a work directory, for example `~/Music/WalkmanGo`, put **walkman-go.ini** into the directory.
+然后，创建一个工作目录，例如`~/Music/WalkmanGo`，把**walkman-go.ini**文件放在这个目录里面。
 
 ```ini
 # walkman-go.ini
 [general]
 workdir = ~/Music/WalkmanGo
-# Available bitrate: flac,320,128
+# 比特率，可选：flac,320,128
 bitrate = flac
 
 [personal]
-# Your QQ number
+# 你的QQ号
 uin = 123456789
 playlists[] = Playlist1
 playlists[] = Playlist2
 ```
 
-Start WalkmanGo:
+启动Walkman Go:
 
 ```
 $ walkman-go

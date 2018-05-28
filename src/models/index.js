@@ -35,6 +35,9 @@ const {
   Artist,
   Playlist,
   Song,
+  User,
+  UserAlbum,
+  UserPlaylist,
   PlaylistSong,
   ArtistSong,
   SongAudio,
@@ -69,6 +72,15 @@ Album.belongsTo(Artist, {
   as: 'artist'
 })
 
+User.belongsToMany(Album, {
+  through: UserAlbum,
+  as: 'albums'
+})
+User.belongsToMany(Playlist, {
+  through: UserPlaylist,
+  as: 'playlists'
+})
+
 Song.belongsToMany(Local, {
   through: SongAudio,
   otherKey: 'audio_id',
@@ -77,6 +89,21 @@ Song.belongsToMany(Local, {
 Album.belongsTo(Local, {
   as: 'artwork'
 })
+
+User.ensure = function() {
+  const { WALKMAN_GO_UIN: uin } = process.env
+  return User.findOrCreate({
+    where: { uin },
+    defaults: { uin }
+  })
+}
+
+User.current = function() {
+  const { WALKMAN_GO_UIN: uin } = process.env
+  return User.findOne({
+    where: { uin }
+  })
+}
 
 Song.prototype.getTargetBitrate = function() {
   return Promise.try(() => {
@@ -108,4 +135,4 @@ Song.prototype.findTargetAudio = function() {
   })
 }
 
-export { Album, Artist, Playlist, Song, Local }
+export { User, Album, Artist, Playlist, Song, Local }

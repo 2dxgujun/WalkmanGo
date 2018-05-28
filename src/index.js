@@ -11,7 +11,15 @@ import pkg from '../package.json'
 global.Promise = Bluebird
 
 function setup() {
-  return fse.ensureDir(process.env.WALKMAN_GO_WORKDIR)
+  const { WALKMAN_GO_WORKDIR: workdir } = process.env
+  return fse.ensureDir(workdir).then(() => {
+    const sequelize = require('./models').default
+    const { User } = require('./models')
+    return sequelize
+      .authenticate()
+      .then(() => sequelize.sync())
+      .then(User.ensure)
+  })
 }
 
 function parse(data) {

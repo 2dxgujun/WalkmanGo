@@ -5,8 +5,6 @@ import Sequelize from 'sequelize'
 import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
 import Processor from '../../utils/promise-processor'
 import { Log } from '../../utils/logger'
-import { ID_OPTIMIZED, ID_BITRATE } from '../consts'
-import { isOptimized, findVorbisComment } from '../helper'
 import _ from 'lodash'
 
 Promise.promisifyAll(ID3v2)
@@ -45,9 +43,7 @@ function prepare() {
     .then(songs => _.uniqBy(songs, 'id'))
     .map(song => song.findTargetAudio().then(audio => ({ song, audio })))
     .then(items => _.filter(items, 'audio'))
-    .filter(({ song, audio }) => {
-      return isOptimized(audio).then(optimized => !optimized)
-    })
+    .filter(({ song, audio }) => !audio.SongAudio.isOptimized)
     .map(({ song, audio }) => {
       return processor.add(() => {
         Log.d(`Optimizing: ${audio.path}`)
@@ -83,17 +79,7 @@ function optimize__MP3(audio, song) {
         {
           title: song.name,
           artist: song.artists.length ? song.artists[0].name : 'Unknown',
-          album: 'Unknown',
-          private: [
-            {
-              owner: ID_OPTIMIZED,
-              data: 'true'
-            },
-            {
-              owner: ID_BITRATE,
-              data: audio.SongAudio.bitrate
-            }
-          ]
+          album: song.album ? song.album.name : 'Unknown'
         },
         audio.path
       )
@@ -126,11 +112,7 @@ function optimize__FLAC(audio, song) {
               ),
               FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
                 'Album',
-                'Unknown'
-              ),
-              FLAC.metadata_object.vorbiscomment_entry_from_name_value_pair(
-                ID_OPTIMIZED,
-                'true'
+                song.album ? song.album.name : 'Unknown'
               )
             ])
               .mapSeries(entry => {
@@ -149,5 +131,17 @@ function optimize__FLAC(audio, song) {
             )
           })
       })
+  })
+}
+
+function findVorbisComment(it) {
+  return FLAC.metadata_simple_iterator.get_block_type(it).then(type => {
+    if (type === FLAC.MetadataType['VORBIS_COMMENT']) {
+      return FLAC.metadata_simple_iterator.get_block(it)
+    }
+    return FLAC.metadata_simple_iterator.next(it).then(r => {
+      if (r) return findVorbisComment(it)
+      return null
+    })
   })
 }

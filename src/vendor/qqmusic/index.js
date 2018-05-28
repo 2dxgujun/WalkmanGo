@@ -52,7 +52,8 @@ export function getPlaylistSongs(playlistId) {
           name: song.songname,
           album: {
             id: song.albumid, // may be 0
-            mid: song.albummid // may be ''
+            mid: song.albummid, // may be ''
+            name: song.albumname
           },
           artists: song.singer // may be []
             .filter(singer => {
@@ -70,6 +71,72 @@ export function getPlaylistSongs(playlistId) {
           sizeflac: song.sizeflac
         }
       })
+    })
+}
+
+export function getAlbumSongs(albumMid) {
+  return fetch(
+    `https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg?albummid=${albumMid}&format=json`
+  )
+    .then(res => {
+      if (res.ok) return res.json()
+      return res.text().then(text => {
+        console.log(text)
+        throw new HttpError(res.status, text)
+      })
+    })
+    .then(result => {
+      if (result.code !== 0) {
+        throw new Error(result.message)
+      }
+      return result.data.list.map(song => {
+        return {
+          id: song.songid,
+          mid: song.strMediaMid,
+          name: song.songname,
+          artists: song.singer.map(singer => ({
+            id: singer.id,
+            mid: singer.mid,
+            name: singer.name
+          })),
+          size128: song.size128,
+          size320: song.size320,
+          sizeflac: song.sizeflac
+        }
+      })
+    })
+}
+
+export function getAlbums(uin) {
+  return _getAlbums(uin).map(album => ({
+    id: album.albumid,
+    mid: album.albummid,
+    name: album.albumname,
+    artist: {
+      id: album.singerid,
+      mid: album.singermid,
+      name: album.singername
+    }
+  }))
+}
+
+function _getAlbums(uin, offset = 0) {
+  return fetch(
+    `https://c.y.qq.com/fav/fcgi-bin/fcg_get_profile_order_asset.fcg?ct=20&cid=205360956&userid=${uin}&reqtype=2&
+    sin=${offset}&ein=${offset + 49}`
+  )
+    .then(res => {
+      if (res.ok) return res.json()
+      throw new HttpError(res.status, res.text())
+    })
+    .then(result => {
+      if (result.code !== 0) {
+        throw new Error(result.message)
+      }
+      if (result.data.has_more) {
+        return _getAlbums(uin, offset + 50).then(result.concat)
+      }
+      return result.data.albumlist
     })
 }
 

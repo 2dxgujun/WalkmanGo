@@ -14,6 +14,12 @@ export default function(sequelize, DataTypes) {
         type: Sequelize.ENUM('128', '320', 'flac'),
         allowNull: false,
         field: 'bitrate'
+      },
+      optimized: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: 'optimized'
       }
     },
     {
@@ -23,7 +29,7 @@ export default function(sequelize, DataTypes) {
       charset: 'utf8',
       indexes: [
         {
-          name: 'uk_song_audio',
+          name: 'uk_song_audio_bitrate',
           unique: true,
           fields: ['song_id', 'audio_id', 'bitrate']
         }

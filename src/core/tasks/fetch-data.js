@@ -2,20 +2,19 @@ import * as qqmusic from '../../vendor/qqmusic'
 import Sequelize from 'sequelize'
 import sequelize, { User, Album, Artist, Playlist, Song } from '../../models'
 import { Log } from '../../utils/logger'
+import { retry } from '../../utils/promise-retry'
 
 const { WALKMAN_GO_UIN: uin, WALKMAN_GO_PLAYLISTS } = process.env
 
 export default function() {
   Log.d('Start fetch data')
-  return (
-    addOrRemovePlaylists()
-      .then(addOrRemoveAlbums)
-      .then(addOrRemoveSongs)
-      .then(() => Log.d('Done'))
-      .catch(err => {
-        Log.e('Uncaught Error when fetch data: ', err)
-      })
-  )
+  return addOrRemovePlaylists()
+    .then(addOrRemoveAlbums)
+    .then(addOrRemoveSongs)
+    .then(() => Log.d('Done fetch data'))
+    .catch(err => {
+      Log.e('Error when fetch data: ', err)
+    })
 }
 
 function addOrRemovePlaylists() {
@@ -29,15 +28,13 @@ function addOrRemovePlaylists() {
         return Promise.map(playlists, playlist => {
           return findThenUpdateOrCreatePlaylist(playlist, {
             transaction: t
-          }).spread((playlist, created) => {
-            Log.d(`${created ? 'Create' : 'Update'} playlist: ${playlist.name}`)
-            return playlist
+          }).spread((instance, created) => {
+            if (created) Log.d(`Create playlist: ${instance.name}`)
+            return instance
           })
         }).then(playlists => {
           return User.current().then(user => {
-            return user.setPlaylists(playlists, {
-              transaction: t
-            })
+            return user.setPlaylists(playlists, { transaction: t })
           })
         })
       })
@@ -47,26 +44,24 @@ function addOrRemovePlaylists() {
 function addOrRemoveAlbums() {
   return qqmusic.getAlbums(uin).then(albums => {
     return sequelize.transaction(t => {
-      return Promise.map(albums, _album => {
-        return findOrCreateAlbum(_album, {
+      return Promise.map(albums, album => {
+        return findOrCreateAlbum(album, {
           transaction: t
-        }).spread((album, created) => {
-          if (created) Log.d(`Create album: ${album.name}`)
-          return findOrCreateArtist(_album.artist, {
+        }).spread((albumInstance, created) => {
+          if (created) Log.d(`Create album: ${albumInstance.name}`)
+          return findOrCreateArtist(album.artist, {
             transaction: t
           })
-            .spread((artist, created) => {
-              return album.setArtist(artist, {
+            .spread((artistInstance, created) => {
+              return albumInstance.setArtist(artistInstance, {
                 transaction: t
               })
             })
-            .return(album)
+            .return(albumInstance)
         })
       }).then(albums => {
         return User.current().then(user => {
-          return user.setAlbums(albums, {
-            transaction: t
-          })
+          return user.setAlbums(albums, { transaction: t })
         })
       })
     })
@@ -78,8 +73,9 @@ function addOrRemoveSongs() {
 }
 
 function addOrRemovePlaylistsSongs() {
-  return User.current().then(user => {
-    return user.getPlaylists().mapSeries(playlist => {
+  return User.current()
+    .then(user => user.getPlaylists())
+    .mapSeries(playlist => {
       return qqmusic.getPlaylistSongs(playlist.id).then(songs => {
         return sequelize.transaction(t => {
           return Promise.map(songs, song => {
@@ -108,33 +104,39 @@ function addOrRemovePlaylistsSongs() {
         })
       })
     })
-  })
 }
 
 function addOrRemoveAlbumsSongs() {
-  return User.current().then(user => {
-    return user.getAlbums().mapSeries(album => {
-      return qqmusic.getAlbumSongs(album.mid).then(songs => {
+  return User.current()
+    .then(user => user.getAlbums())
+    .mapSeries(album => {
+      return retry(() => qqmusic.getAlbumInfo(album.mid), {
+        max_tries: 4,
+        interval: 1000
+      }).then(album => {
         return sequelize.transaction(t => {
-          return Promise.map(songs, song => {
-            return Promise.join(
-              findOrCreateSong(song, { transaction: t }).spread(i => i),
-              findOrCreateArtists(song.artists, { transaction: t }),
-              (song, artists) => {
-                if (artists && artists.length) {
-                  return song
-                    .setArtists(artists, { transaction: t })
-                    .return(song)
-                }
-              }
-            )
-          }).then(songs => {
-            return album.setSongs(songs, { transaction: t })
-          })
+          return findThenUpdateOrCreateAlbum(album, { transaction: t }).spread(
+            albumInstance => {
+              return Promise.map(album.songs, song => {
+                return Promise.join(
+                  findOrCreateSong(song, { transaction: t }).spread(i => i),
+                  findOrCreateArtists(song.artists, { transaction: t }),
+                  (song, artists) => {
+                    if (artists && artists.length) {
+                      return song
+                        .setArtists(artists, { transaction: t })
+                        .return(song)
+                    }
+                  }
+                )
+              }).then(songs => {
+                return albumInstance.setSongs(songs, { transaction: t })
+              })
+            }
+          )
         })
       })
     })
-  })
 }
 
 function findOrCreateAlbumIfPresent(album, options) {
@@ -142,37 +144,6 @@ function findOrCreateAlbumIfPresent(album, options) {
     return findOrCreateAlbum(album, options).spread(i => i)
   }
   return null
-}
-
-function fetchAlbums() {
-  return Album.all({
-    where: {
-      name: {
-        [Sequelize.Op.eq]: null
-      }
-    }
-  })
-    .reduce((accumulator, album, i) => {
-      if (i < 10) {
-        accumulator.push(album)
-      }
-      return accumulator
-    }, [])
-    .mapSeries(album => {
-      return qqmusic.getAlbumInfo(album.mid).then(album => {
-        return sequelize.transaction(t => {
-          return Promise.join(
-            findThenUpdateOrCreateAlbum(album, { transaction: t }).spread(
-              i => i
-            ),
-            findOrCreateArtist(album.artist, { transaction: t }).spread(i => i),
-            (album, artist) => {
-              return album.setArtist(artist, { transaction: t })
-            }
-          )
-        })
-      })
-    })
 }
 
 function findOrCreateSong(song, options) {

@@ -4,10 +4,7 @@ import { Log } from '../utils/logger'
 
 var job = null
 
-function enqueue() {
-  if (queue.getPendingLength() > 0) {
-    return
-  }
+export function enqueue() {
   queue.add(require('./tasks/fetch-data').default)
   //queue.add(require('./tasks/download-songs').default)
   //queue.add(require('./tasks/download-album-artworks').default)
@@ -25,7 +22,12 @@ export function schedule() {
   Log.d('Schedule')
   job = new CronJob(
     `00 */5 * * * *`,
-    enqueue,
+    () => {
+      if (queue.getPendingLength() > 0) {
+        return
+      }
+      enqueue()
+    },
     null, // onComplete
     true, // start now
     'Asia/Shanghai',

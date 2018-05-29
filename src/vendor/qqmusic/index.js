@@ -12,7 +12,9 @@ export function getPlaylists(uin) {
   )
     .then(res => {
       if (res.ok) return res.json()
-      throw new HttpError(res.status, res.text())
+      return res.text().then(text => {
+        throw new HttpError(res.status, text)
+      })
     })
     .then(result => {
       if (result.code !== 0) {
@@ -39,7 +41,9 @@ export function getPlaylistSongs(playlistId) {
   )
     .then(res => {
       if (res.ok) return res.json()
-      throw new HttpError(res.status, res.text())
+      return res.text().then(text => {
+        throw new HttpError(res.status, text)
+      })
     })
     .then(result => {
       if (result.code !== 0) {
@@ -74,39 +78,6 @@ export function getPlaylistSongs(playlistId) {
     })
 }
 
-export function getAlbumSongs(albumMid) {
-  return fetch(
-    `https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg?albummid=${albumMid}&format=json`
-  )
-    .then(res => {
-      if (res.ok) return res.json()
-      return res.text().then(text => {
-        console.log(text)
-        throw new HttpError(res.status, text)
-      })
-    })
-    .then(result => {
-      if (result.code !== 0) {
-        throw new Error(result.message)
-      }
-      return result.data.list.map(song => {
-        return {
-          id: song.songid,
-          mid: song.strMediaMid,
-          name: song.songname,
-          artists: song.singer.map(singer => ({
-            id: singer.id,
-            mid: singer.mid,
-            name: singer.name
-          })),
-          size128: song.size128,
-          size320: song.size320,
-          sizeflac: song.sizeflac
-        }
-      })
-    })
-}
-
 export function getAlbums(uin) {
   return _getAlbums(uin).map(album => ({
     id: album.albumid,
@@ -127,7 +98,9 @@ function _getAlbums(uin, offset = 0) {
   )
     .then(res => {
       if (res.ok) return res.json()
-      throw new HttpError(res.status, res.text())
+      return res.text().then(text => {
+        throw new HttpError(res.status, text)
+      })
     })
     .then(result => {
       if (result.code !== 0) {
@@ -140,13 +113,15 @@ function _getAlbums(uin, offset = 0) {
     })
 }
 
-export function getAlbumInfo(albumMid) {
+export function getAlbumInfo(albummid) {
   return fetch(
-    `https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg?albummid=${albumMid}&format=json`
+    `https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg?albummid=${albummid}&format=json`
   )
     .then(res => {
       if (res.ok) return res.json()
-      throw new HttpError(res.status, res.text())
+      return res.text().then(text => {
+        throw new HttpError(res.status, text)
+      })
     })
     .then(result => {
       if (result.code !== 0) {
@@ -164,7 +139,20 @@ export function getAlbumInfo(albumMid) {
           id: result.data.singerid,
           mid: result.data.singermid,
           name: result.data.singername
-        }
+        },
+        songs: result.data.list.map(song => ({
+          id: song.songid,
+          mid: song.strMediaMid,
+          name: song.songname,
+          artists: song.singer.map(singer => ({
+            id: singer.id,
+            mid: singer.mid,
+            name: singer.name
+          })),
+          size128: song.size128,
+          size320: song.size320,
+          sizeflac: song.sizeflac
+        }))
       }
     })
 }
@@ -177,25 +165,31 @@ export function getAudioStream(filename) {
   )
     .then(res => {
       if (res.ok) return res.json()
-      throw new HttpError(res.status, res.text())
+      return res.text().then(text => {
+        throw new HttpError(res.status, text)
+      })
     })
     .then(result => {
       return fetch(
         `${result.sip[0]}${filename}?vkey=${result.key}&guid=${guid}&fromtag=60`
       ).then(res => {
         if (res.ok) return res.body
-        throw new HttpError(res.status, res.text())
+        return res.text().then(text => {
+          throw new HttpError(res.status, text)
+        })
       })
     })
 }
 
-export function getAlbumArtworkStream(albumId) {
-  const id = albumId.toString()
+export function getAlbumArtworkStream(albumid) {
+  const id = albumid.toString()
   const sid = parseInt(id.substr(id.length - 2))
   return fetch(
     `https://y.gtimg.cn/music/photo/album_500/${sid}/500_albumpic_${id}_0.jpg`
   ).then(res => {
     if (res.ok) return res.body
-    throw new HttpError(res.status, res.text())
+    return res.text().then(text => {
+      throw new HttpError(res.status, text)
+    })
   })
 }

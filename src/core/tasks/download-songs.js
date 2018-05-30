@@ -147,11 +147,14 @@ function download(spinner, song) {
                 .pipe(m)
                 .pipe(p)
                 .pipe(fse.createWriteStream(tmppath))
-              p.on('progress', progress => {
-                getLocalAudioFile(song).then(audiofile => {
-                  spinner.text = `Downloading ${audiofile}`
-                })
-              })
+              // prettier-ignore
+              // TODO
+              p.on('progress', _.throttle(progress => {
+                  getLocalAudioFile(song).then(audiofile => {
+                    spinner.text = `Downloading ${audiofile}`
+                  })
+                }, 500)
+              )
               source.on('error', reject)
               stream.on('error', reject)
               stream.on('finish', () => {

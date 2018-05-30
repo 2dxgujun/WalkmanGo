@@ -7,45 +7,79 @@ import meter from 'stream-meter'
 import { Log } from '../../utils/logger'
 import Processor from '../../utils/promise-processor'
 import _ from 'lodash'
+import ora from '../../utils/ora++'
 
 export default function() {
   Log.d('Start download songs')
-  return prepare()
+  const spinner = ora().start()
+  return prepare(spinner)
     .then(run)
+    .then(() => {
+      spinner.succeed()
+    })
     .catch(err => {
+      spinner.failed('Failed to download songs')
       return Log.e('Uncaught Error when download song', err)
     })
 }
 
-function prepare() {
+function prepare(spinner) {
   const processor = Processor.create()
   return User.current()
     .then(user => {
-      return user.getPlaylists({
-        include: [
-          {
-            model: Song,
-            as: 'songs',
-            include: [
-              {
-                model: Artist,
-                as: 'artists'
-              },
-              {
-                model: Local,
-                as: 'audios'
-              }
-            ]
-          }
-        ]
-      })
+      return Promise.join(
+        user.getPlaylists({
+          include: [
+            {
+              model: Song,
+              as: 'songs',
+              include: [
+                {
+                  model: Artist,
+                  as: 'artists'
+                },
+                {
+                  model: Local,
+                  as: 'audios'
+                }
+              ]
+            }
+          ]
+        }),
+        user.getAlbums({
+          include: [
+            {
+              model: Song,
+              as: 'songs',
+              include: [
+                {
+                  model: Artist,
+                  as: 'artists'
+                },
+                {
+                  model: Local,
+                  as: 'audios'
+                }
+              ]
+            }
+          ]
+        }),
+        (playlists, albums) => {
+          return [
+            ..._.flatten(playlists.map(playlist => playlist.songs)),
+            ..._.flatten(albums.map(album => album.songs))
+          ]
+        }
+      )
     })
-    .map(playlist => playlist.songs)
-    .then(_.flatten)
     .then(songs => _.uniqBy(songs, 'id'))
+    .then(songs => {
+      spinner.max = songs.length
+      return songs
+    })
     .map(song => {
       return song.findTargetAudio().then(audio => {
-        if (!audio) return prepareDownload(processor, song)
+        if (!audio) return enqueueJob(processor, spinner, song)
       })
     })
     .return(processor)
@@ -55,11 +89,10 @@ function run(processor) {
   return processor.run()
 }
 
-function prepareDownload(processor, song) {
+function enqueueJob(processor, spinner, song) {
   return processor.add(() => {
     return getLocalAudioPath(song).then(audiopath => {
-      Log.d(`Downloading: ${audiopath}`)
-      return downloadSong(song)
+      return download(spinner, song)
         .then(() => {
           return processor
             .post(() => {
@@ -71,6 +104,9 @@ function prepareDownload(processor, song) {
         })
         .catch(err => {
           Log.e(`Download failed: ${audiopath}`, err)
+        })
+        .then(() => {
+          spinner.progress++
         })
     })
   })
@@ -95,7 +131,7 @@ function addAudio(song, audiopath) {
   })
 }
 
-function downloadSong(song) {
+function download(spinner, song) {
   return getLocalAudioPath(song).then(audiopath => {
     const tmppath = `${audiopath}.tmp`
     return getRemoteAudioFile(song)
@@ -104,6 +140,11 @@ function downloadSong(song) {
         return new Promise((resolve, reject) => {
           const m = meter()
           const stream = source.pipe(m).pipe(fse.createWriteStream(tmppath))
+          source.on('data', () => {
+            getLocalAudioFile(song).then(audiofile => {
+              spinner.text = `Downloading ${audiofile}`
+            })
+          })
           source.on('error', reject)
           stream.on('error', reject)
           stream.on('finish', () => {
@@ -134,24 +175,29 @@ function getMimeType(audiopath) {
 }
 
 function getLocalAudioPath(song) {
-  const { WALKMAN_GO_WORKDIR } = process.env
+  const { WALKMAN_GO_WORKDIR: workdir } = process.env
   return song.getTargetBitrate().then(bitrate => {
-    const audiodir = path.resolve(WALKMAN_GO_WORKDIR, 'music', bitrate)
-    return fse.ensureDir(audiodir).then(() => {
-      return getRemoteAudioFile(song)
-        .then(path.extname)
-        .then(audioext => {
-          let artistName = 'Unknown'
-          if (song.artists && song.artists.length > 0) {
-            artistName = `${song.artists[0].name}`
-          }
-          const audiofile = `${artistName} - ${song.name}${audioext}`.replace(
-            '/',
-            ','
-          )
-          return path.resolve(audiodir, audiofile)
-        })
-    })
+    const audiodir = path.resolve(workdir, 'music', bitrate)
+    return fse
+      .ensureDir(audiodir)
+      .then(() => getLocalAudioFile(song))
+      .then(audiofile => {
+        return path.resolve(audiodir, audiofile)
+      })
+  })
+}
+
+function getLocalAudioFile(song) {
+  return song.getTargetBitrate().then(bitrate => {
+    let extname = '.mp3'
+    if (bitrate === 'flac') extname = '.flac'
+    let artistName = 'Unknown'
+    if (song.artists && song.artists.length > 0) {
+      artistName = `${song.artists[0].name}`
+    }
+    let audiofile = `${artistName} - ${song.name}${extname}`
+    audiofile = audiofile.replace('/', ',')
+    return audiofile
   })
 }
 

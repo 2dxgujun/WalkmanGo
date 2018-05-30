@@ -30,8 +30,8 @@ function addOrRemovePlaylists() {
       spinner.max = playlists.length
       return playlists
     })
-    .mapSeries(playlist => {
-      spinner.inc()
+    .mapSeries((playlist, index) => {
+      spinner.progress = index
       return sequelize.transaction(t => {
         return findThenUpdateOrCreatePlaylist(playlist, {
           transaction: t
@@ -66,8 +66,8 @@ function addOrRemoveAlbums() {
       spinner.max = albums.length
       return albums
     })
-    .mapSeries(album => {
-      spinner.inc()
+    .mapSeries((album, index) => {
+      spinner.progress = index
       return sequelize.transaction(t => {
         return Promise.join(
           findOrCreateAlbum(album, { transaction: t }).spread(i => i),

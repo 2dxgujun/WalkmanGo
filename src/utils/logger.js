@@ -2,13 +2,29 @@ import log4js from 'log4js'
 
 log4js.configure({
   appenders: {
-    console: {
-      type: 'console'
+    appFile: {
+      type: 'file',
+      filename: 'app.log'
+    },
+    app: {
+      type: 'logLevelFilter',
+      appender: 'appFile',
+      level: 'DEBUG',
+      maxLevel: 'WARN'
+    },
+    errorFile: {
+      type: 'file',
+      filename: 'error.log'
+    },
+    error: {
+      type: 'logLevelFilter',
+      appender: 'errorFile',
+      level: 'ERROR'
     }
   },
   categories: {
     default: {
-      appenders: ['console'],
+      appenders: ['app', 'error'],
       level: 'DEBUG'
     }
   }

@@ -1,8 +1,10 @@
 import fse from 'fs-extra'
+import path from 'path'
 import ini from 'ini'
 import Bluebird from 'bluebird'
 import program from 'commander'
 import untildify from 'untildify'
+import log4js from 'log4js'
 
 import { schedule } from './core/schedule'
 import initDetection from './core/init-detection'
@@ -12,6 +14,7 @@ global.Promise = Bluebird
 
 function setup() {
   const { WALKMAN_GO_WORKDIR: workdir } = process.env
+  configureLogger(workdir)
   return fse.ensureDir(workdir).then(() => {
     const sequelize = require('./models').default
     const { User } = require('./models')
@@ -19,6 +22,23 @@ function setup() {
       .authenticate()
       .then(() => sequelize.sync())
       .then(User.ensure)
+  })
+}
+
+function configureLogger(workdir) {
+  log4js.configure({
+    appenders: {
+      app: {
+        type: 'file',
+        filename: path.resolve(workdir, 'walkman-go.log')
+      }
+    },
+    categories: {
+      default: {
+        appenders: ['app'],
+        level: 'DEBUG'
+      }
+    }
   })
 }
 

@@ -3,6 +3,8 @@ import Sequelize from 'sequelize'
 import sequelize, { User, Album, Artist, Playlist, Song } from '../../models'
 import { Log } from '../../utils/logger'
 import { retry } from '../../utils/promise-retry'
+import _ from 'lodash'
+import ApiError from '../../vendor/api-error'
 
 const { WALKMAN_GO_UIN: uin, WALKMAN_GO_PLAYLISTS } = process.env
 
@@ -10,7 +12,7 @@ export default function() {
   Log.d('Start fetch data')
   return addOrRemovePlaylists()
     .then(addOrRemoveAlbums)
-    .then(addOrRemoveSongs)
+    .then(updateAlbums)
     .then(() => Log.d('Done fetch data'))
     .catch(err => {
       Log.e('Error when fetch data: ', err)
@@ -39,37 +41,37 @@ function addOrRemovePlaylists() {
         })
       })
     })
+    .then(addOrRemovePlaylistsSongs)
 }
 
 function addOrRemoveAlbums() {
-  return qqmusic.getAlbums(uin).then(albums => {
-    return sequelize.transaction(t => {
-      return Promise.map(albums, album => {
-        return findOrCreateAlbum(album, {
-          transaction: t
-        }).spread((albumInstance, created) => {
-          if (created) Log.d(`Create album: ${albumInstance.name}`)
-          return findOrCreateArtist(album.artist, {
+  return qqmusic
+    .getAlbums(uin)
+    .then(albums => {
+      return sequelize.transaction(t => {
+        return Promise.map(albums, album => {
+          return findOrCreateAlbum(album, {
             transaction: t
-          })
-            .spread((artistInstance, created) => {
-              return albumInstance.setArtist(artistInstance, {
-                transaction: t
-              })
+          }).spread((instance, created) => {
+            if (created) Log.d(`Create album: ${instance.name}`)
+            return findOrCreateArtist(album.artist, {
+              transaction: t
             })
-            .return(albumInstance)
-        })
-      }).then(albums => {
-        return User.current().then(user => {
-          return user.setAlbums(albums, { transaction: t })
+              .spread((artistInstance, created) => {
+                return instance.setArtist(artistInstance, {
+                  transaction: t
+                })
+              })
+              .return(instance)
+          })
+        }).then(albums => {
+          return User.current().then(user => {
+            return user.setAlbums(albums, { transaction: t })
+          })
         })
       })
     })
-  })
-}
-
-function addOrRemoveSongs() {
-  return addOrRemovePlaylistsSongs().then(addOrRemoveAlbumsSongs)
+    .then(addOrRemoveAlbumsSongs)
 }
 
 function addOrRemovePlaylistsSongs() {
@@ -106,17 +108,108 @@ function addOrRemovePlaylistsSongs() {
     })
 }
 
+function updateAlbums() {
+  return User.current()
+    .then(user =>
+      user.getPlaylists({
+        include: [
+          {
+            model: Song,
+            as: 'songs',
+            required: true,
+            include: [
+              {
+                model: Album,
+                as: 'album',
+                where: {
+                  songCount: {
+                    [Sequelize.Op.eq]: null
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      })
+    )
+    .map(playlist => playlist.songs.map(song => song.album))
+    .then(_.flatten)
+    .then(albums => _.uniqBy(albums, 'id'))
+    .mapSeries(instance => {
+      return retry(() => qqmusic.getAlbumInfo(instance.mid), {
+        max_tries: 4,
+        interval: 1000
+      })
+        .then(album => {
+          return sequelize.transaction(t => {
+            return instance
+              .update(
+                {
+                  name: album.name,
+                  songCount: album.song_cnt,
+                  releaseDate: album.release_date,
+                  language: album.language,
+                  genre: album.genre
+                },
+                { transaction: t }
+              )
+              .then(instance => {
+                return findOrCreateArtist(album.artist, {
+                  transaction: t
+                }).spread(artist => {
+                  return instance.setArtist(artist, { transaction: t })
+                })
+              })
+              .then(() => {
+                return Promise.map(album.songs, song => {
+                  return Promise.join(
+                    findOrCreateSong(song, { transaction: t }).spread(i => i),
+                    findOrCreateArtists(song.artists, { transaction: t }),
+                    (song, artists) => {
+                      if (artists && artists.length) {
+                        return song
+                          .setArtists(artists, { transaction: t })
+                          .return(song)
+                      }
+                    }
+                  )
+                })
+              })
+              .then(songs => {
+                return instance.setSongs(songs, { transaction: t })
+              })
+          })
+        })
+        .catch(ApiError, err => {
+          Log.e(err)
+        })
+    })
+}
+
 function addOrRemoveAlbumsSongs() {
   return User.current()
-    .then(user => user.getAlbums())
+    .then(user =>
+      user.getAlbums({
+        include: [
+          {
+            model: Song,
+            as: 'songs'
+          }
+        ]
+      })
+    )
+    .filter(album => album.songCount !== album.songs.length)
     .mapSeries(album => {
+      Log.d(`Start fetch album info: ${album.name}`)
       return retry(() => qqmusic.getAlbumInfo(album.mid), {
         max_tries: 4,
         interval: 1000
-      }).then(album => {
-        return sequelize.transaction(t => {
-          return findThenUpdateOrCreateAlbum(album, { transaction: t }).spread(
-            albumInstance => {
+      })
+        .then(album => {
+          return sequelize.transaction(t => {
+            return findThenUpdateOrCreateAlbum(album, {
+              transaction: t
+            }).spread(instance => {
               return Promise.map(album.songs, song => {
                 return Promise.join(
                   findOrCreateSong(song, { transaction: t }).spread(i => i),
@@ -130,12 +223,14 @@ function addOrRemoveAlbumsSongs() {
                   }
                 )
               }).then(songs => {
-                return albumInstance.setSongs(songs, { transaction: t })
+                return instance.setSongs(songs, { transaction: t })
               })
-            }
-          )
+            })
+          })
         })
-      })
+        .catch(ApiError, err => {
+          Log.e(err)
+        })
     })
 }
 

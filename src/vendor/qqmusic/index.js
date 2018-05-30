@@ -1,5 +1,6 @@
 import fetch from 'node-fetch'
 import HttpError from '../http-error'
+import ApiError from '../api-error'
 
 export function getPlaylists(uin) {
   return fetch(
@@ -18,7 +19,7 @@ export function getPlaylists(uin) {
     })
     .then(result => {
       if (result.code !== 0) {
-        throw new Error(result.message)
+        throw new ApiError(result.code, result.message)
       }
       return result.data.disslist.map(diss => {
         return {
@@ -47,7 +48,7 @@ export function getPlaylistSongs(playlistId) {
     })
     .then(result => {
       if (result.code !== 0) {
-        throw new Error(result.message)
+        throw new ApiError(result.code, result.message)
       }
       return result.cdlist[0].songlist.map(song => {
         return {
@@ -104,7 +105,7 @@ function _getAlbums(uin, offset = 0) {
     })
     .then(result => {
       if (result.code !== 0) {
-        throw new Error(result.message)
+        throw new ApiError(result.code, result.message)
       }
       if (result.data.has_more) {
         return _getAlbums(uin, offset + 50).then(result.concat)
@@ -125,7 +126,7 @@ export function getAlbumInfo(albummid) {
     })
     .then(result => {
       if (result.code !== 0) {
-        throw new Error(result.message)
+        throw new ApiError(result.code, result.data.albumTips)
       }
       return {
         id: result.data.id,

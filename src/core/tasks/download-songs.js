@@ -1,6 +1,6 @@
 import * as qqmusic from '../../vendor/qqmusic'
 import Sequelize from 'sequelize'
-import sequelize, { Artist, Playlist, Song, Local } from '../../models'
+import sequelize, { User, Artist, Playlist, Song, Local } from '../../models'
 import path from 'path'
 import fse from 'fs-extra'
 import meter from 'stream-meter'
@@ -19,24 +19,27 @@ export default function() {
 
 function prepare() {
   const processor = Processor.create()
-  return Playlist.all({
-    include: [
-      {
-        model: Song,
-        as: 'songs',
+  return User.current()
+    .then(user => {
+      return user.getPlaylists({
         include: [
           {
-            model: Artist,
-            as: 'artists'
-          },
-          {
-            model: Local,
-            as: 'audios'
+            model: Song,
+            as: 'songs',
+            include: [
+              {
+                model: Artist,
+                as: 'artists'
+              },
+              {
+                model: Local,
+                as: 'audios'
+              }
+            ]
           }
         ]
-      }
-    ]
-  })
+      })
+    })
     .map(playlist => playlist.songs)
     .then(_.flatten)
     .then(songs => _.uniqBy(songs, 'id'))

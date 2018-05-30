@@ -19,7 +19,7 @@ export function schedule() {
       job.start()
     })
   }
-  Log.d('Schedule')
+  Log.d('Schedule begin')
   job = new CronJob(
     `00 */5 * * * *`,
     () => {

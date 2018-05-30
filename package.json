@@ -34,7 +34,7 @@
     "node-flac": "github:2dxgujun/node-flac#v0.0.3",
     "node-id3": "github:2dxgujun/node-id3",
     "promise-queue": "^2.2.5",
-    "sequelize": "^4.37.6",
+    "sequelize": "^4.37.10",
     "sharp": "^0.20.1",
     "sqlite3": "^4.0.0",
     "stream-meter": "^1.0.4",

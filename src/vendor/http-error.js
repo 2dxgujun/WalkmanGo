@@ -1,4 +1,3 @@
-import { format } from 'url'
 import { STATUS_CODES } from 'http'
 
 export default class HttpError extends Error {

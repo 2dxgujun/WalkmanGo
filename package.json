@@ -34,6 +34,7 @@
     "node-flac": "github:2dxgujun/node-flac#v0.0.3",
     "node-id3": "github:2dxgujun/node-id3",
     "ora": "^2.1.0",
+    "progress-stream": "^2.0.0",
     "promise-queue": "^2.2.5",
     "sequelize": "^4.37.10",
     "sharp": "^0.20.1",

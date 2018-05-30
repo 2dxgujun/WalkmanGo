@@ -16,59 +16,59 @@ export default function(options) {
     },
     options
   )
-  const spinner = ora(options)
-  spinner.rawText = spinner.text
-  Object.defineProperty(spinner, 'text', {
+  const instance = ora(options)
+  instance.rawText = instance.text
+  instance.preText = ''
+  Object.defineProperty(instance, 'text', {
     set: function(text) {
-      spinner.rawText = text
-      spinner.lineCount = calcLineCount(spinner.text, spinner.stream.columns)
+      instance.rawText = text
     },
     get: function() {
-      if (spinner.max === 0) return spinner.rawText
-      const maxLength = spinner.max.toString().length
-      const progress = spinner.progress.toString().padStart(maxLength)
-      const prefix = `${progress}/${spinner.max} `
-      return prefix + spinner.rawText
+      if (instance.max === 0) return instance.rawText
+      const prefix = `${instance.progress}/${instance.max} `
+      const text = prefix + instance.rawText
+      if (text.length !== instance.preText.length) {
+        const columns = instance.stream.columns || 80
+        instance.lineCount = stripAnsi('--' + text)
+          .split('\n')
+          .reduce((count, line) => {
+            return count + Math.max(1, Math.ceil(wcwidth(line) / columns))
+          }, 0)
+      }
+      return text
     }
   })
 
   const MAX = Symbol('max')
-  Object.defineProperty(spinner, 'max', {
+  Object.defineProperty(instance, 'max', {
     set: function(max) {
       if (max < 0) throw new Error('Invalid max')
-      if (!spinner[MAX] || spinner[MAX] === 0) {
-        spinner[MAX] = max
-        spinner.lineCount = calcLineCount(spinner.text, spinner.stream.columns)
+      if (!instance[MAX] || instance[MAX] === 0) {
+        instance[MAX] = max
       } else {
         throw new Error("You can't set max more than once")
       }
     },
     get: function() {
-      return spinner[MAX]
+      return instance[MAX]
     }
   })
 
   const PROGRESS = Symbol('progress')
-  Object.defineProperty(spinner, 'progress', {
+  Object.defineProperty(instance, 'progress', {
     set: function(progress) {
-      if (progress < 0 || progress > spinner.max)
+      if (progress < 0 || progress > instance.max)
         throw new Error('Invalid progress')
-      spinner[PROGRESS] = progress
+      instance[PROGRESS] = progress
     },
     get: function() {
-      return spinner[PROGRESS]
+      return instance[PROGRESS]
     }
   })
-  spinner.progress = spinner.options.progress
-  spinner.max = spinner.options.max
+  instance.progress = instance.options.progress
+  instance.max = instance.options.max
 
-  return spinner
+  return instance
 }
 
-function calcLineCount(value, columns) {
-  return stripAnsi('--' + value)
-    .split('\n')
-    .reduce((count, line) => {
-      return count + Math.max(1, Math.ceil(wcwidth(line) / columns))
-    }, 0)
-}
+function calcLineCount(value, columns) {}

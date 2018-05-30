@@ -45,11 +45,12 @@ function configureLogger(workdir) {
 function parse(data) {
   const cfg = ini.parse(data)
   const { workdir, bitrate } = cfg.general
-  const { uin, playlists } = cfg.personal
+  const { uin, playlists, albums } = cfg.personal
   process.env.WALKMAN_GO_WORKDIR = untildify(workdir)
   process.env.WALKMAN_GO_BITRATE = bitrate
   process.env.WALKMAN_GO_UIN = uin
   process.env.WALKMAN_GO_PLAYLISTS = playlists
+  process.env.WALKMAN_GO_ALBUMS = albums
 }
 
 program

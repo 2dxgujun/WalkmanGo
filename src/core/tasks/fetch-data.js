@@ -7,7 +7,11 @@ import _ from 'lodash'
 import ApiError from '../../vendor/api-error'
 import ora from '../../utils/ora++'
 
-const { WALKMAN_GO_UIN: uin, WALKMAN_GO_PLAYLISTS } = process.env
+const {
+  WALKMAN_GO_UIN: uin,
+  WALKMAN_GO_PLAYLISTS,
+  WALKMAN_GO_ALBUMS
+} = process.env
 
 export default function() {
   return addOrRemovePlaylists()
@@ -62,6 +66,10 @@ function addOrRemoveAlbums() {
   }).start()
   return qqmusic
     .getAlbums(uin)
+    .filter(album => {
+      // Filter albums for develop, not intent to use to production
+      return WALKMAN_GO_ALBUMS.includes(album.name)
+    })
     .then(albums => {
       spinner.max = albums.length
       return albums

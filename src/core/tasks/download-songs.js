@@ -8,6 +8,7 @@ import { Log } from '../../utils/logger'
 import Processor from '../../utils/promise-processor'
 import _ from 'lodash'
 import ora from '../../utils/ora++'
+import progress from 'progress-stream'
 
 export default function() {
   Log.d('Start download songs')
@@ -138,18 +139,26 @@ function download(spinner, song) {
       .then(qqmusic.getAudioStream)
       .then(source => {
         return new Promise((resolve, reject) => {
-          const m = meter()
-          const stream = source.pipe(m).pipe(fse.createWriteStream(tmppath))
-          source.on('data', () => {
-            getLocalAudioFile(song).then(audiofile => {
-              spinner.text = `Downloading ${audiofile}`
+          getRemoteAudioSize(song)
+            .then(size => {
+              const m = meter()
+              const p = progress({ length: size, time: 1000 })
+              const stream = source
+                .pipe(m)
+                .pipe(p)
+                .pipe(fse.createWriteStream(tmppath))
+              p.on('progress', progress => {
+                getLocalAudioFile(song).then(audiofile => {
+                  spinner.text = `Downloading ${audiofile}`
+                })
+              })
+              source.on('error', reject)
+              stream.on('error', reject)
+              stream.on('finish', () => {
+                resolve(m.bytes)
+              })
             })
-          })
-          source.on('error', reject)
-          stream.on('error', reject)
-          stream.on('finish', () => {
-            resolve(m.bytes)
-          })
+            .catch(reject)
         })
       })
       .then(bytes => {

@@ -2,9 +2,17 @@ import ID3v1 from '../../utils/ID3v1'
 import ID3v2 from 'node-id3'
 import FLAC from 'node-flac'
 import Sequelize from 'sequelize'
-import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
+import sequelize, {
+  User,
+  Album,
+  Artist,
+  Playlist,
+  Song,
+  Local
+} from '../../models'
 import Processor from '../../utils/promise-processor'
 import { Log } from '../../utils/logger'
+import ora from '../../utils/ora++'
 import _ from 'lodash'
 
 Promise.promisifyAll(ID3v2)
@@ -20,30 +28,10 @@ export default function() {
 
 function prepare() {
   const processor = Processor.create()
-  return Playlist.all({
-    include: [
-      {
-        model: Song,
-        as: 'songs',
-        include: [
-          {
-            model: Artist,
-            as: 'artists'
-          },
-          {
-            model: Local,
-            as: 'audios'
-          }
-        ]
-      }
-    ]
-  })
-    .map(playlist => playlist.songs)
-    .then(_.flatten)
-    .then(songs => _.uniqBy(songs, 'id'))
+  then(songs => _.uniqBy(songs, 'id'))
     .map(song => song.findTargetAudio().then(audio => ({ song, audio })))
     .then(items => _.filter(items, 'audio'))
-    .filter(({ song, audio }) => !audio.SongAudio.isOptimized)
+    .filter(({ song, audio }) => !audio.SongAudio.optimized)
     .map(({ song, audio }) => {
       return processor.add(() => {
         Log.d(`Optimizing: ${audio.path}`)
@@ -53,6 +41,36 @@ function prepare() {
       })
     })
     .return(processor)
+}
+
+function findUserSongs() {
+  return User.current()
+    .then(user => {
+      return user.getPlaylists({
+        include: [
+          {
+            model: Song,
+            as: 'songs',
+            include: [
+              {
+                model: Album,
+                as: 'album'
+              },
+              {
+                model: Artist,
+                as: 'artists'
+              },
+              {
+                model: Local,
+                as: 'audios'
+              }
+            ]
+          }
+        ]
+      })
+    })
+    .map(playlist => playlist.songs)
+    .then(_.flatten)
 }
 
 function run(processor) {

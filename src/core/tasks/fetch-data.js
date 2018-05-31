@@ -22,20 +22,18 @@ export default function() {
 }
 
 function addOrRemovePlaylists() {
-  const spinner = ora({
-    text: 'Updating playlists'
-  }).start()
+  const spinner = ora()
   return qqmusic
     .getPlaylists(uin)
     .filter(playlist => {
       return WALKMAN_GO_PLAYLISTS.includes(playlist.name)
     })
-    .then(playlists => {
-      spinner.max = playlists.length
-      return playlists
-    })
-    .mapSeries((playlist, index) => {
-      spinner.progress = index
+    .mapSeries((playlist, index, length) => {
+      spinner.progress({
+        text: 'Updating playlists',
+        max: length,
+        progress: index + 1
+      })
       return sequelize.transaction(t => {
         return findThenUpdateOrCreatePlaylist(playlist, {
           transaction: t
@@ -52,7 +50,7 @@ function addOrRemovePlaylists() {
       })
     })
     .then(() => {
-      spinner.succeed('Playlists up-to-date')
+      spinner.succeed()
     })
     .catch(err => {
       spinner.fail('Failed to update playlists')
@@ -61,21 +59,19 @@ function addOrRemovePlaylists() {
 }
 
 function addOrRemoveAlbums() {
-  const spinner = ora({
-    text: 'Updating albums'
-  }).start()
+  const spinner = ora()
   return qqmusic
     .getAlbums(uin)
     .filter(album => {
       // Filter albums for develop, not intent to use to production
       return WALKMAN_GO_ALBUMS.includes(album.name)
     })
-    .then(albums => {
-      spinner.max = albums.length
-      return albums
-    })
-    .mapSeries((album, index) => {
-      spinner.progress = index
+    .mapSeries((album, index, length) => {
+      spinner.progress({
+        text: 'Updating albums',
+        max: length,
+        progress: index + 1
+      })
       return sequelize.transaction(t => {
         return Promise.join(
           findOrCreateAlbum(album, { transaction: t }).spread(i => i),
@@ -100,7 +96,7 @@ function addOrRemoveAlbums() {
       })
     })
     .then(() => {
-      spinner.succeed('Albums up-to-date')
+      spinner.succeed()
     })
     .catch(err => {
       spinner.fail('Failed to update albums')

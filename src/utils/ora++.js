@@ -1,74 +1,64 @@
 import ora from 'ora'
+import bitrate from 'bitrate'
 import stripAnsi from 'strip-ansi'
 import wcwidth from 'wcwidth'
+import align from 'wide-align'
+import truncate from 'cli-truncate'
+import _ from 'lodash'
 
-export default function(options) {
-  if (typeof options === 'string') {
-    options = {
-      text: options
-    }
+// Piping 夏璃夜 - なんでもないや (没什么大不了) (女声翻唱remix).mp3         3.18 Mbps 29% 3.7s
+function pipingText(options) {
+  const { name, progress: { speed, percentage, eta } } = options
+  const mbps = _.round(bitrate(speed, 1, 'mbps'), 2)
+  // 3.18 Mbps 29% 3s
+  const progress = `${mbps} Mbps ${_.round(percentage)}% ${eta}s`
+  const columns = process.stderr.columns || 80
+  const padEnd = 4
+  let widthRemain = columns
+  widthRemain -= wcwidth(`--Piping--${progress}`)
+  if (widthRemain >= wcwidth(name) + padEnd) {
+    return `Piping ${align.left(name, widthRemain)} ${progress}`
+  } else {
+    return `Piping ${align.left(
+      truncate(name, widthRemain - padEnd),
+      widthRemain
+    )} ${progress}`
   }
-  options = Object.assign(
-    {
-      color: 'green',
-      max: 0,
-      progress: 0
-    },
-    options
-  )
-  const instance = ora(options)
-  instance.rawText = instance.text
-  instance.preText = ''
-  Object.defineProperty(instance, 'text', {
-    set: function(text) {
-      instance.rawText = text
-    },
-    get: function() {
-      if (instance.max === 0) return instance.rawText
-      const prefix = `${instance.progress}/${instance.max} `
-      const text = prefix + instance.rawText
-      if (text.length !== instance.preText.length) {
-        const columns = instance.stream.columns || 80
-        instance.lineCount = stripAnsi('--' + text)
-          .split('\n')
-          .reduce((count, line) => {
-            return count + Math.max(1, Math.ceil(wcwidth(line) / columns))
-          }, 0)
-      }
-      return text
-    }
-  })
-
-  const MAX = Symbol('max')
-  Object.defineProperty(instance, 'max', {
-    set: function(max) {
-      if (max < 0) throw new Error('Invalid max')
-      if (!instance[MAX] || instance[MAX] === 0) {
-        instance[MAX] = max
-      } else {
-        throw new Error("You can't set max more than once")
-      }
-    },
-    get: function() {
-      return instance[MAX]
-    }
-  })
-
-  const PROGRESS = Symbol('progress')
-  Object.defineProperty(instance, 'progress', {
-    set: function(progress) {
-      if (progress < 0 || progress > instance.max)
-        throw new Error('Invalid progress')
-      instance[PROGRESS] = progress
-    },
-    get: function() {
-      return instance[PROGRESS]
-    }
-  })
-  instance.progress = instance.options.progress
-  instance.max = instance.options.max
-
-  return instance
 }
 
-function calcLineCount(value, columns) {}
+// Updating playlists: 100% (52/52)
+// Updating playlists: 100% (52/52), done.
+function progressText(options) {
+  const { text, progress, max } = options
+  const percentage = _.round(progress / max * 100)
+  return `${text}: ${percentage}% (${progress}/${max})`
+}
+
+export default function(options) {
+  const instance = ora(options)
+
+  instance.__proto__.piping = _.debounce(function(options) {
+    this.type = 'piping'
+    this.text = pipingText(options)
+  }, 500)
+
+  instance.__proto__.progress = function(options) {
+    options = Object.assign(
+      {
+        text: this.text
+      },
+      options
+    )
+    this.type = 'progress'
+    this.text = progressText(options)
+  }
+
+  const succeed = instance.succeed
+  instance.__proto__.succeed = function(text) {
+    if (this.type === 'progress') {
+      return succeed.bind(this)(`${this.text}, done.`)
+    }
+    return succeed.bind(this)(text)
+  }
+  return instance.start()
+}

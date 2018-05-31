@@ -12,7 +12,7 @@ import progress from 'progress-stream'
 
 export default function() {
   Log.d('Start download songs')
-  const spinner = ora().start()
+  const spinner = ora()
   return prepare(spinner)
     .then(run)
     .then(() => {
@@ -74,10 +74,6 @@ function prepare(spinner) {
       )
     })
     .then(songs => _.uniqBy(songs, 'id'))
-    .then(songs => {
-      spinner.max = songs.length
-      return songs
-    })
     .map(song => {
       return song.findTargetAudio().then(audio => {
         if (!audio) return enqueueJob(processor, spinner, song)
@@ -105,9 +101,6 @@ function enqueueJob(processor, spinner, song) {
         })
         .catch(err => {
           Log.e(`Download failed: ${audiopath}`, err)
-        })
-        .then(() => {
-          spinner.progress++
         })
     })
   })
@@ -147,14 +140,11 @@ function download(spinner, song) {
                 .pipe(m)
                 .pipe(p)
                 .pipe(fse.createWriteStream(tmppath))
-              // prettier-ignore
-              // TODO
-              p.on('progress', _.throttle(progress => {
-                  getLocalAudioFile(song).then(audiofile => {
-                    spinner.text = `Downloading ${audiofile}`
-                  })
-                }, 500)
-              )
+              p.on('progress', progress => {
+                getLocalAudioFile(song).then(audiofile => {
+                  spinner.piping({ name: audiofile, progress })
+                })
+              })
               source.on('error', reject)
               stream.on('error', reject)
               stream.on('finish', () => {

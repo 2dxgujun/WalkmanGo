@@ -11,8 +11,7 @@ import ora from '../../utils/ora++'
 import progress from 'progress-stream'
 
 export default function() {
-  Log.d('Start download songs')
-  const spinner = ora()
+  const spinner = ora('Start pipe audios')
   return prepare(spinner)
     .then(run)
     .then(() => {
@@ -26,6 +25,16 @@ export default function() {
 
 function prepare(spinner) {
   const processor = Processor.create()
+  return findUserSongs()
+    .map(song => {
+      return song.findTargetAudio().then(audio => {
+        if (!audio) return enqueueJob(processor, spinner, song)
+      })
+    })
+    .return(processor)
+}
+
+function findUserSongs() {
   return User.current()
     .then(user => {
       return Promise.join(
@@ -74,12 +83,6 @@ function prepare(spinner) {
       )
     })
     .then(songs => _.uniqBy(songs, 'id'))
-    .map(song => {
-      return song.findTargetAudio().then(audio => {
-        if (!audio) return enqueueJob(processor, spinner, song)
-      })
-    })
-    .return(processor)
 }
 
 function run(processor) {
@@ -135,7 +138,7 @@ function download(spinner, song) {
           getRemoteAudioSize(song)
             .then(size => {
               const m = meter()
-              const p = progress({ length: size, time: 1000 })
+              const p = progress({ length: size })
               const stream = source
                 .pipe(m)
                 .pipe(p)

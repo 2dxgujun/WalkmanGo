@@ -40,6 +40,7 @@ export default function(options) {
   instance.__proto__.piping = _.debounce(function(options) {
     this.type = 'piping'
     this.text = pipingText(options)
+    return instance.start()
   }, 500)
 
   instance.__proto__.progress = function(options) {
@@ -51,6 +52,7 @@ export default function(options) {
     )
     this.type = 'progress'
     this.text = progressText(options)
+    return instance.start()
   }
 
   const succeed = instance.succeed
@@ -60,5 +62,5 @@ export default function(options) {
     }
     return succeed.bind(this)(text)
   }
-  return instance.start()
+  return instance
 }

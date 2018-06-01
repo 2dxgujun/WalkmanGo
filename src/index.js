@@ -65,7 +65,7 @@ fse
   .readFile(program.config || './walkman-go.ini', 'utf-8')
   .then(parse)
   .then(setup)
-  .then(schedule)
+  //.then(schedule)
   .then(initDetection)
   .catch(err => {
     console.log(err.message)

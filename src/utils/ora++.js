@@ -73,5 +73,10 @@ export default function(options) {
     return fail.bind(this.start())(text)
   }
 
+  const warn = instance.warn
+  instance.__proto__.warn = function(text) {
+    return warn.bind(this.start())(text)
+  }
+
   return instance
 }

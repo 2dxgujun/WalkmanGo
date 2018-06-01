@@ -1,4 +1,40 @@
+import drivelist from 'drivelist'
+import inquirer from 'inquirer'
+import fse from 'fs-extra'
 import path from 'path'
+import { Log } from '../utils/logger'
+
+Promise.promisifyAll(drivelist)
+
+function findWalkmanDrives() {
+  return drivelist.listAsync().filter(drive => {
+    return drive.description.includes('WALKMAN')
+  })
+}
+
+export function findMountpointsAwait(millis) {
+  function findMountpointsRecursive() {
+    return findMountpoints().then(mountpoints => {
+      if (mountpoints && mountpoints.length) return mountpoints
+      return Promise.delay(1000).then(findMountpointsRecursive)
+    })
+  }
+  return findMountpointsRecursive().timeout(millis)
+}
+
+export function findMountpoints() {
+  return findWalkmanDrives().then(drives => {
+    return Promise.filter(drives, drive => {
+      return drive.mountpoints && drive.mountpoints.length > 0
+    }).then(drives => {
+      const mountpoints = []
+      drives.forEach(drive => {
+        mountpoints.push(...drive.mountpoints)
+      })
+      return mountpoints
+    })
+  })
+}
 
 export function getWalkmanMusicPath(mountpoint) {
   return Promise.resolve(path.resolve(mountpoint.path, 'MUSIC'))
@@ -30,7 +66,7 @@ export function getWalkmanPlaylistAudioPath(mountpoint, playlist, audio) {
 
 export function getWalkmanAlbumPath(mountpoint, album) {
   return getWalkmanMusicPath(mountpoint).then(musicPath => {
-    return path.resolve(musicPath, `${album.artist} - ${album.name}`)
+    return path.resolve(musicPath, `${album.artist.name} - ${album.name}`)
   })
 }
 

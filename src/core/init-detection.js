@@ -1,13 +1,11 @@
 import detection from 'usb-detection'
-import { transfer } from './transfer'
+import transfer from './transfer'
 import { schedule, unschedule } from './schedule'
 
 export default function() {
   detect(
     (err, device) => {
-      unschedule()
-        .then(transfer)
-        .then(schedule)
+      unschedule().then(transfer)
     },
     (err, device) => {
       return schedule()

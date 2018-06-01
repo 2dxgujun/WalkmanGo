@@ -15,11 +15,17 @@ export default function(sequelize, DataTypes) {
         allowNull: false,
         field: 'bitrate'
       },
-      optimized: {
+      isOptimized: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false,
         field: 'optimized'
+      },
+      hasArtwork: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: 'has_artwork'
       }
     },
     {
@@ -29,9 +35,8 @@ export default function(sequelize, DataTypes) {
       charset: 'utf8',
       indexes: [
         {
-          name: 'uk_song_audio_bitrate',
           unique: true,
-          fields: ['song_id', 'audio_id', 'bitrate']
+          fields: ['audio_id']
         }
       ]
     }

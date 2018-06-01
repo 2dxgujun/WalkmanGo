@@ -1,72 +1,70 @@
 import Sequelize from 'sequelize'
-import sequelize, { Album, Artist, Playlist, Song, Local } from '../../models'
+import sequelize, {
+  User,
+  Album,
+  Artist,
+  Playlist,
+  Song,
+  Local
+} from '../../models'
 import fse from 'fs-extra'
 import FLAC from 'node-flac'
 import ID3v2 from 'node-id3'
 import sharp from 'sharp'
 import Processor from '../../utils/promise-processor'
 import { Log } from '../../utils/logger'
-import { isOptimized } from '../helper'
+import ora from '../../utils/ora++'
+import path from 'path'
 import _ from 'lodash'
 
 Promise.promisifyAll(ID3v2)
 
 export default function() {
+  const spinner = ora('Start add album artworks')
   Log.d('Start add album artworks')
-  return prepare()
+  return prepare(spinner)
     .then(run)
+    .then(() => {
+      spinner.succeed('Add album artwork done.')
+    })
     .catch(err => {
-      return Log.e('Uncaught Error when add album artworks', err)
+      Log.e('Uncaught Error when add album artworks', err)
+      spinner.fail('Add album artwork failed. Please check error log')
     })
 }
 
-function prepare() {
+function prepare(spinner) {
   const processor = Processor.create()
-  return Playlist.all({
-    include: [
-      {
-        model: Song,
-        as: 'songs',
-        include: [
-          {
-            model: Album,
-            as: 'album',
-            include: [
-              {
-                model: Local,
-                as: 'artwork'
-              }
-            ]
-          },
-          {
-            model: Local,
-            as: 'audios'
-          }
-        ]
-      }
-    ]
-  })
-    .map(playlist => playlist.songs)
-    .then(_.flatten)
+  return Promise.join(
+    User.getPlaylists(),
+    User.getAlbums(),
+    (playlists, albums) => {
+      return [
+        ..._.flatten(playlists.map(playlist => playlist.songs)),
+        ..._.flatten(albums.map(album => album.songs))
+      ]
+    }
+  )
     .then(songs => _.uniqBy(songs, 'id'))
     .then(songs => _.filter(songs, 'album'))
     .then(songs => _.filter(songs, 'album.artwork'))
     .map(song => song.findTargetAudio().then(audio => ({ song, audio })))
     .then(items => _.filter(items, 'audio'))
-    .filter(({ song, audio }) => {
-      return isOptimized(audio).then(optimized => {
-        if (optimized) {
-          return isAlbumArtworkAdded(audio).then(added => !added)
-        }
-        return false
-      })
-    })
+    .then(items => _.filter(items, 'audio.SongAudio.isOptimized'))
+    .then(items => _.filter(items, ['audio.SongAudio.hasArtwork', false]))
     .map(({ song, audio }) => {
       return processor.add(() => {
         Log.d(`Adding: ${song.name}`)
-        return addAlbumArtwork(audio, song.album).catch(err => {
-          Log.e(`Add album artwork failed: ${song.name}`, err)
-        })
+        spinner.plain(`Adding album artwork for ${path.basename(audio.path)}`)
+        return addAlbumArtwork(audio, song.album)
+          .then(() => {
+            return audio.SongAudio.update({
+              hasArtwork: true
+            })
+          })
+          .catch(err => {
+            Log.e(`Add album artwork failed: ${song.name}`, err)
+          })
       })
     })
     .return(processor)
@@ -137,44 +135,4 @@ function addAlbumArtwork__MP3(audio, album) {
     },
     audio.path
   )
-}
-
-function isAlbumArtworkAdded(audio) {
-  if (audio.mimeType === 'audio/flac') {
-    return isAlbumArtworkAdded__FLAC(audio)
-  } else if (audio.mimeType === 'audio/mp3') {
-    return isAlbumArtworkAdded__MP3(audio)
-  } else {
-    throw new Error('Unknown audio format')
-  }
-}
-
-function isAlbumArtworkAdded__MP3(audio) {
-  return ID3v2.readAsync(audio.path).then(tags => {
-    if (tags['image']) {
-      return true
-    }
-    return false
-  })
-}
-
-function isAlbumArtworkAdded__FLAC(audio) {
-  return FLAC.metadata_simple_iterator.new().then(it => {
-    return FLAC.metadata_simple_iterator
-      .init(it, audio.path, true, false)
-      .then(() => {
-        function isPictureBlockExistsRecursive(it) {
-          return FLAC.metadata_simple_iterator.get_block_type(it).then(type => {
-            if (type === FLAC.MetadataType['PICTURE']) {
-              return true
-            }
-            return FLAC.metadata_simple_iterator.next(it).then(r => {
-              if (r) return isPictureBlockExistsRecursive(it)
-              return false
-            })
-          })
-        }
-        return isPictureBlockExistsRecursive(it)
-      })
-  })
 }

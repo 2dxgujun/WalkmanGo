@@ -47,14 +47,14 @@ function prepare(spinner) {
     .then(songs => _.uniqBy(songs, 'id'))
     .map(song => song.findTargetAudio().then(audio => ({ song, audio })))
     .then(items => _.filter(items, 'audio'))
-    .filter(({ song, audio }) => !audio.SongAudio.optimized)
+    .filter(({ song, audio }) => !audio.SongAudio.isOptimized)
     .map(({ song, audio }) => {
       return processor.add(() => {
         spinner.plain(`Optimizing ${path.basename(audio.path)}`)
         return optimize(audio, song)
           .then(() => {
             return audio.SongAudio.update({
-              optimized: true
+              isOptimized: true
             })
           })
           .catch(err => {

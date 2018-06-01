@@ -42,11 +42,11 @@ export default function(options) {
     return instance.start()
   }
 
-  instance.__proto__.piping = _.debounce(function(options) {
+  instance.__proto__.piping = function(options) {
     this.type = 'piping'
     this.text = pipingText(options)
     return instance.start()
-  }, 500)
+  }
 
   instance.__proto__.progress = function(options) {
     options = Object.assign(

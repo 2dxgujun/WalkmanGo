@@ -8,7 +8,7 @@ export function enqueue() {
   queue.add(require('./tasks/fetch-data').default)
   queue.add(require('./tasks/download-songs').default)
   queue.add(require('./tasks/download-album-artworks').default)
-  //queue.add(require('./tasks/optimize-tags').default)
+  queue.add(require('./tasks/optimize-tags').default)
   //queue.add(require('./tasks/add-album-artworks').default)
 }
 

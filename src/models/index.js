@@ -135,4 +135,86 @@ Song.prototype.findTargetAudio = function() {
   })
 }
 
+User.getPlaylists = function() {
+  return User.current().then(user => {
+    return user.getPlaylists({
+      include: [
+        {
+          model: Song,
+          as: 'songs',
+          include: [
+            {
+              model: Album,
+              as: 'album',
+              include: [
+                {
+                  model: Artist,
+                  as: 'artist'
+                },
+                {
+                  model: Local,
+                  as: 'artwork'
+                }
+              ]
+            },
+            {
+              model: Artist,
+              as: 'artists'
+            },
+            {
+              model: Local,
+              as: 'audios'
+            }
+          ]
+        }
+      ]
+    })
+  })
+}
+
+User.getAlbums = function() {
+  return User.current().then(user => {
+    return user.getAlbums({
+      include: [
+        {
+          model: Song,
+          as: 'songs',
+          include: [
+            {
+              model: Album,
+              as: 'album',
+              include: [
+                {
+                  model: Artist,
+                  as: 'artist'
+                },
+                {
+                  model: Local,
+                  as: 'artwork'
+                }
+              ]
+            },
+            {
+              model: Artist,
+              as: 'artists'
+            },
+            {
+              model: Local,
+              as: 'audios'
+            }
+          ]
+        },
+        {
+          model: Artist,
+          as: 'artist'
+        },
+        {
+          model: Local,
+          as: 'artwork'
+        }
+      ]
+    })
+  })
+}
+
 export { User, Album, Artist, Playlist, Song, Local }

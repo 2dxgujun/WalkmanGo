@@ -37,6 +37,11 @@ function progressText(options) {
 export default function(options) {
   const instance = ora(options)
 
+  instance.__proto__.plain = function(text) {
+    this.text = text
+    return instance.start()
+  }
+
   instance.__proto__.piping = _.debounce(function(options) {
     this.type = 'piping'
     this.text = pipingText(options)
@@ -62,5 +67,11 @@ export default function(options) {
     }
     return succeed.bind(this)(text)
   }
+
+  const fail = instance.fail
+  instance.__proto__.fail = function(text) {
+    return fail.bind(this.start())(text)
+  }
+
   return instance
 }

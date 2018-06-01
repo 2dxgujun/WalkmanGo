@@ -4,8 +4,6 @@ import Logger from './logger'
 
 const numCPUs = os.cpus().length
 
-const Log = new Logger('Processor')
-
 export default class Processor extends Queue {
   static create() {
     return new Processor()
@@ -27,14 +25,14 @@ export default class Processor extends Queue {
 
   add(generator) {
     super
-      .add(generator)
-      .catch(err => {
-        Log.e('Uncaught Error in processor: ', err)
-      })
+      .add(() => Promise.try(generator))
       .then(() => {
         if (this.pending && this.pendingPromises === 0) {
           this.resolve()
         }
+      })
+      .catch(err => {
+        this.reject(err)
       })
     return Promise.resolve()
   }
@@ -44,6 +42,7 @@ export default class Processor extends Queue {
     while (this._dequeue()) {}
     this.pending = new Promise((resolve, reject) => {
       this.resolve = resolve
+      this.reject = reject
     })
     if (this.pendingPromises === 0) {
       return Promise.resolve()

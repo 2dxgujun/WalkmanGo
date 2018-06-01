@@ -13,64 +13,56 @@ import sequelize, {
 import Processor from '../../utils/promise-processor'
 import { Log } from '../../utils/logger'
 import ora from '../../utils/ora++'
+import path from 'path'
 import _ from 'lodash'
 
 Promise.promisifyAll(ID3v2)
 
 export default function() {
+  const spinner = ora('Start optimize tags')
   Log.d('Start optimize tags')
-  return prepare()
+  return prepare(spinner)
     .then(run)
+    .then(() => {
+      spinner.succeed('Optimize tags done.')
+    })
     .catch(err => {
-      return Log.e('Uncaught Error when optimize tags', err)
+      Log.e('Uncaught Error when optimize tags', err)
+      spinner.fail('Optimize tags failed. Please check error log')
     })
 }
 
-function prepare() {
+function prepare(spinner) {
   const processor = Processor.create()
-  then(songs => _.uniqBy(songs, 'id'))
+  return Promise.join(
+    User.getPlaylists(),
+    User.getAlbums(),
+    (playlists, albums) => {
+      return [
+        ..._.flatten(playlists.map(playlist => playlist.songs)),
+        ..._.flatten(albums.map(album => album.songs))
+      ]
+    }
+  )
+    .then(songs => _.uniqBy(songs, 'id'))
     .map(song => song.findTargetAudio().then(audio => ({ song, audio })))
     .then(items => _.filter(items, 'audio'))
     .filter(({ song, audio }) => !audio.SongAudio.optimized)
     .map(({ song, audio }) => {
       return processor.add(() => {
-        Log.d(`Optimizing: ${audio.path}`)
-        return optimize(audio, song).catch(err => {
-          Log.e(`Optimize failed: ${audio.path}`, err)
-        })
+        spinner.plain(`Optimizing ${path.basename(audio.path)}`)
+        return optimize(audio, song)
+          .then(() => {
+            return audio.SongAudio.update({
+              optimized: true
+            })
+          })
+          .catch(err => {
+            Log.e(`Optimize failed: ${audio.path}`, err)
+          })
       })
     })
     .return(processor)
-}
-
-function findUserSongs() {
-  return User.current()
-    .then(user => {
-      return user.getPlaylists({
-        include: [
-          {
-            model: Song,
-            as: 'songs',
-            include: [
-              {
-                model: Album,
-                as: 'album'
-              },
-              {
-                model: Artist,
-                as: 'artists'
-              },
-              {
-                model: Local,
-                as: 'audios'
-              }
-            ]
-          }
-        ]
-      })
-    })
-    .map(playlist => playlist.songs)
-    .then(_.flatten)
 }
 
 function run(processor) {

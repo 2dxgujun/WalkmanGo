@@ -1,9 +1,12 @@
 import Queue from 'promise-queue'
 import os from 'os'
 import Logger from './logger'
+import EventEmitter from 'events'
+import { inherits } from 'util'
 
 const numCPUs = os.cpus().length
 
+inherits(Queue, EventEmitter)
 export default class Processor extends Queue {
   static create() {
     return new Processor()
@@ -25,9 +28,17 @@ export default class Processor extends Queue {
 
   add(generator) {
     super
-      .add(() => Promise.try(generator))
+      .add(() => {
+        return Promise.try(() => {
+          this.emit('progress', {
+            length: this.length,
+            index: this.index++
+          })
+          return generator()
+        })
+      })
       .then(() => {
-        if (this.pending && this.pendingPromises === 0) {
+        if (this.pendingPromises === 0) {
           this.resolve()
         }
       })
@@ -39,14 +50,20 @@ export default class Processor extends Queue {
 
   run() {
     this.maxPendingPromises = this.concurrency
-    while (this._dequeue()) {}
+    this.length = this.queue.length
+    this.index = 0
     this.pending = new Promise((resolve, reject) => {
       this.resolve = resolve
       this.reject = reject
     })
+    while (this._dequeue()) {}
     if (this.pendingPromises === 0) {
-      return Promise.resolve()
+      this.resolve()
     }
     return this.pending
+  }
+
+  execute() {
+    return run()
   }
 }

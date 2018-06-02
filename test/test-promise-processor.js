@@ -1,30 +1,20 @@
 var Processor = require('../src/utils/promise-processor').default
 
-var processor = new Processor(4)
-
-processor
-  .add(() => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        console.log('Running')
-        resolve('1')
-      }, 1000)
-    })
-  })
-  .then(msg => {
-    console.log('Done, result: ' + msg)
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        console.log('Timeout after 5 seconds')
-        resolve()
-      }, 5000)
-    })
-  })
+var processor = new Processor(1)
 
 processor.add(() => {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       console.log(2)
+      resolve()
+    }, 1000)
+  })
+})
+
+processor.add(() => {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      console.log(4)
       resolve()
     }, 3000)
   })
@@ -32,7 +22,7 @@ processor.add(() => {
 processor.add(() => {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-      console.log(3)
+      console.log(1)
       resolve()
     }, 500)
   })
@@ -40,26 +30,25 @@ processor.add(() => {
 processor.add(() => {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-      console.log(4)
+      console.log(3)
       resolve()
     }, 2000)
   })
 })
 
+processor.on('progress', update => {
+  console.log(`${update.index} / ${update.length}`)
+})
+
 setTimeout(() => {
-  processor.run().then(() => {
-    console.log('ALL DONE')
-  })
+  processor
+    .run()
+    .then(() => {
+      console.log('ALL DONE')
+    })
+    .catch(err => {
+      console.error(err)
+    })
 }, 1000)
 
-function foo() {
-  return Promise.resolve().then(() => {
-    processor.add(() => {
-      console.log('FOO')
-    })
-  })
-}
-
-foo().then(() => {})
-
-setTimeout(() => {}, 100000)
+setTimeout(() => {}, 10000)

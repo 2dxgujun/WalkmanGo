@@ -52,7 +52,7 @@ function parse(data) {
   process.env.WALKMAN_GO_UIN = uin
   process.env.WALKMAN_GO_PLAYLISTS = playlists
   process.env.WALKMAN_GO_ALBUMS = albums
-  process.env.WALKMAN_GO_MOUNTPOINTS = mountpoints
+  process.env.WALKMAN_GO_MOUNTPOINTS = mountpoints.map(untildify)
 }
 
 program

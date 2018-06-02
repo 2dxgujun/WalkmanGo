@@ -125,7 +125,9 @@ function syncAlbums(mountpoints) {
       }
     ])
     .then(mountpoint => {
-      return addOrRemoveAlbums(mountpoint)
+      return getWalkmanAlbumsPath(mountpoint)
+        .then(fse.ensureDir)
+        .then(() => addOrRemoveAlbums(mountpoint))
     })
 }
 
@@ -186,7 +188,7 @@ function addOrRemovePlaylists(mountpoint) {
 }
 
 function addOrRemovePlaylistSongs(mountpoint) {
-  return User.getPlaylists().map(playlist => {
+  return User.getPlaylists().mapSeries(playlist => {
     const processor = Processor.create()
     const spinner = ora(`Syncing songs for ${playlist.name}`)
     processor.on('progress', ({ max, progress }) => {

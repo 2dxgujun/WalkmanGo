@@ -17,6 +17,7 @@ export default class Processor extends Queue {
     this.concurrency = concurrency
     this.add = this.add.bind(this)
     this.run = this.run.bind(this)
+    this.execute = this.execute.bind(this)
     this.post = this.post.bind(this)
     this.blockingQueue = new Queue(1 /*max concurrent*/, Infinity)
     this.pending = null
@@ -63,6 +64,6 @@ export default class Processor extends Queue {
   }
 
   execute() {
-    return run()
+    return this.run()
   }
 }

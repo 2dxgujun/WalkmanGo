@@ -19,79 +19,42 @@ import _ from 'lodash'
 
 export default function() {
   Log.d('Start download album artwork')
-  const spinner = ora()
-  return prepare(spinner)
-    .then(run)
-    .then(() => {
-      spinner.succeed()
-    })
-    .catch(err => {
-      return Log.e('Uncaught Error when download album artwork', err)
-    })
+  return prepare().catch(err => {
+    return Log.e('Uncaught Error when download album artwork', err)
+  })
 }
 
-function prepare(spinner) {
+function prepare() {
   const processor = Processor.create()
-  return findUserAlbums()
-    .map(album => {
-      if (!album.artwork) {
-        return enqueueJob(processor, spinner, album)
-      }
-    })
-    .return(processor)
-}
-
-function findUserAlbums() {
-  return User.current()
-    .then(user => {
-      return Promise.join(
-        user.getPlaylists({
-          include: [
-            {
-              model: Song,
-              as: 'songs',
-              include: [
-                {
-                  model: Album,
-                  as: 'album',
-                  include: [
-                    {
-                      model: Local,
-                      as: 'artwork'
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }),
-        user.getAlbums({
-          include: [
-            {
-              model: Local,
-              as: 'artwork'
-            }
-          ]
-        }),
-        (playlists, albums) => {
-          return [
-            ..._.flatten(
-              playlists.map(playlist => playlist.songs.map(song => song.album))
-            ),
-            ...albums
-          ]
-        }
-      )
-    })
+  const spinner = ora()
+  processor.on('finish', progress => {
+    spinner.succeed(`Download album artwork, done`)
+  })
+  processor.on('error', err => {
+    spinner.error('Download album artwork failed, check error log')
+  })
+  return Promise.join(
+    User.getPlaylists(),
+    User.getAlbums(),
+    (playlists, albums) => {
+      return [
+        ..._.flatten(
+          playlists.map(playlist => playlist.songs.map(song => song.album))
+        ),
+        ...albums
+      ]
+    }
+  )
     .then(_.filter)
     .then(albums => _.uniqBy(albums, 'id'))
+    .filter(album => !album.artwork)
+    .map(album => {
+      return enqueue(processor, album, spinner)
+    })
+    .then(processor.execute)
 }
 
-function run(processor) {
-  return processor.run()
-}
-
-function enqueueJob(processor, spinner, album) {
+function enqueue(processor, album, spinner) {
   return processor.add(() => {
     return getArtworkPath(album).then(artworkPath => {
       return download(spinner, album)

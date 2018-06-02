@@ -13,13 +13,11 @@ export function enqueue() {
 }
 
 export function schedule() {
-  if (job) {
-    Log.d('Re-Schedule')
+  if (job && !job.running) {
     return Promise.try(() => {
       job.start()
     })
   }
-  Log.d('Schedule begin')
   job = new CronJob(
     `00 */5 * * * *`,
     () => {
@@ -38,7 +36,6 @@ export function schedule() {
 }
 
 export function unschedule() {
-  Log.d('Unschedule')
   return Promise.try(() => {
     if (job) job.stop()
   })

@@ -41,10 +41,10 @@ class NoMountpointError extends Error {}
 export default function() {
   Log.d('Start transfer')
   return ensureMountpoints()
-    .then(syncPlaylists)
-    .then(syncAlbums)
-    .catch(NoMountpointError, err => {
-      Log.e(err)
+    .then(mountpoints => {
+      return transferPlaylists(mountpoints).then(() => {
+        return transferAlbums(mountpoints)
+      })
     })
     .catch(err => {
       Log.e('Uncaught Error when transfer songs', err)
@@ -63,30 +63,18 @@ function ensureMountpoints() {
   const spinner = ora(
     'Starting transfer, please turn on USB mass storage'
   ).start()
-  return findMountpoints()
+  return findMountpointsAwait(30000)
     .then(mountpoints => {
-      if (mountpoints && mountpoints.length) return mountpoints
-      return inquirer
-        .prompt([
-          {
-            type: 'confirm',
-            name: 'charge',
-            message: 'Connect usb for charge?',
-            default: 'false'
-          }
-        ])
-        .then(ans => {
-          if (ans.charge) throw new NoMountpointError()
-          return findMountpointsAwait(15000).catch(Promise.TimeoutError, () => {
-            spinner.fail('No mountpoints since timeout after 15 seconds')
-            throw new NoMountpointError()
-          })
-        })
+      spinner.succeed()
+      return mountpoints
     })
-    .then(spinner.succeed)
+    .catch(Promise.TimeoutError, () => {
+      spinner.fail('No mountpoints since timeout after 30 seconds')
+      throw new NoMountpointError()
+    })
 }
 
-function syncPlaylists(mountpoints) {
+function transferPlaylists(mountpoints) {
   return Promise.filter(mountpoints, mountpoint => {
     return getWalkmanPlaylistsPath(mountpoint).then(fse.pathExists)
   })
@@ -107,28 +95,36 @@ function syncPlaylists(mountpoints) {
     .then(mountpoint => {
       return getWalkmanPlaylistsPath(mountpoint)
         .then(fse.ensureDir)
-        .then(() => addOrRemovePlaylistSongs(mountpoint))
-        .then(() => addOrRemovePlaylists(mountpoint))
         .return(mountpoint)
     })
-    .return(mountpoints)
+    .then(addOrRemovePlaylistSongs)
+    .then(addOrRemovePlaylists)
 }
 
-function syncAlbums(mountpoints) {
-  return inquirer
-    .prompt([
-      {
-        type: 'list',
-        name: 'path',
-        message: 'Pick a mountpoint for transfer albums',
-        choices: mountpoints.map(mountpoint => mountpoint.path)
-      }
-    ])
+function transferAlbums(mountpoints) {
+  return Promise.filter(mountpoints, mountpoint => {
+    return getWalkmanAlbumsPath(mountpoint).then(fse.pathExists)
+  })
+    .then(mountpoints => {
+      if (mountpoints && mountpoints.length > 0) return mountpoints[0]
+    })
+    .then(mountpoint => {
+      if (mountpoint) return mountpoint
+      return inquirer.prompt([
+        {
+          type: 'list',
+          name: 'path',
+          message: 'Pick a mountpoint for transfer albums',
+          choices: mountpoints.map(mountpoint => mountpoint.path)
+        }
+      ])
+    })
     .then(mountpoint => {
       return getWalkmanAlbumsPath(mountpoint)
         .then(fse.ensureDir)
-        .then(() => addOrRemoveAlbums(mountpoint))
+        .return(mountpoint)
     })
+    .then(addOrRemoveAlbums)
 }
 
 function addOrRemovePlaylists(mountpoint) {
@@ -188,79 +184,81 @@ function addOrRemovePlaylists(mountpoint) {
 }
 
 function addOrRemovePlaylistSongs(mountpoint) {
-  return User.getPlaylists().mapSeries(playlist => {
-    const processor = Processor.create()
-    const spinner = ora(`Syncing songs for ${playlist.name}`)
-    processor.on('progress', ({ max, progress }) => {
-      spinner.progress({
-        text: `Syncing songs for ${playlist.name}`,
-        max,
-        progress
+  return User.getPlaylists()
+    .mapSeries(playlist => {
+      const processor = Processor.create()
+      const spinner = ora(`Syncing songs for ${playlist.name}`)
+      processor.on('progress', ({ max, progress }) => {
+        spinner.progress({
+          text: `Syncing songs for ${playlist.name}`,
+          max,
+          progress
+        })
       })
-    })
-    processor.on('finish', progress => {
-      if (progress) {
-        spinner.done()
-      } else {
-        spinner.succeed(`Syncing songs for ${playlist.name}: Up-to-date`)
-      }
-    })
-    processor.on('error', err => {
-      spinner.error(
-        `Syncing songs for ${playlist.name} failed, check error log`
-      )
-    })
-    return Promise.map(playlist.songs, song => song.findTargetAudio())
-      .then(_.filter)
-      .filter(audio => {
-        return getWalkmanPlaylistAudioPath(mountpoint, playlist, audio).then(
-          audiopath => fse.pathExists(audiopath).then(exists => !exists)
+      processor.on('finish', progress => {
+        if (progress) {
+          spinner.done()
+        } else {
+          spinner.succeed(`Syncing songs for ${playlist.name}: Up-to-date`)
+        }
+      })
+      processor.on('error', err => {
+        spinner.error(
+          `Syncing songs for ${playlist.name} failed, check error log`
         )
       })
-      .map(audio => {
-        return getWalkmanPlaylistAudioPath(mountpoint, playlist, audio).then(
-          audiopath => {
-            return processor.add(() => {
-              Log.i(`Adding ${path.basename(audiopath)}`)
-              return fse.ensureDir(path.dirname(audiopath)).then(() => {
-                const tmppath = `${audiopath}.tmp`
-                return fse
-                  .copy(audio.path, tmppath)
-                  .then(() => {
-                    return stripTag(tmppath, audio)
-                  })
-                  .then(() => {
-                    return fse.rename(tmppath, audiopath)
-                  })
+      return Promise.map(playlist.songs, song => song.findTargetAudio())
+        .then(_.filter)
+        .filter(audio => {
+          return getWalkmanPlaylistAudioPath(mountpoint, playlist, audio).then(
+            audiopath => fse.pathExists(audiopath).then(exists => !exists)
+          )
+        })
+        .map(audio => {
+          return getWalkmanPlaylistAudioPath(mountpoint, playlist, audio).then(
+            audiopath => {
+              return processor.add(() => {
+                Log.i(`Adding ${path.basename(audiopath)}`)
+                return fse.ensureDir(path.dirname(audiopath)).then(() => {
+                  const tmppath = `${audiopath}.tmp`
+                  return fse
+                    .copy(audio.path, tmppath)
+                    .then(() => {
+                      return stripTag(tmppath, audio)
+                    })
+                    .then(() => {
+                      return fse.rename(tmppath, audiopath)
+                    })
+                })
               })
-            })
-          }
-        )
-      })
-      .then(() => playlist.songs.map(song => song.findTargetAudio()))
-      .then(_.filter)
-      .map(audio => getWalkmanPlaylistAudioPath(mountpoint, playlist, audio))
-      .then(audiopaths => {
-        return getWalkmanPlaylistPath(mountpoint, playlist)
-          .then(playlistpath => {
-            return fse
-              .ensureDir(playlistpath)
-              .then(() => fse.readdir(playlistpath))
-              .map(file => path.resolve(playlistpath, file))
-          })
-          .map(audiopath => audiopath.normalize()) // NOTE: Very important for mac fs
-          .map(audiopath => {
-            if (!audiopaths.includes(audiopath)) {
-              Log.i(`Removing ${path.basename(audiopath)}`)
-              return processor.add(() => fse.remove(audiopath))
             }
-          })
-      })
-      .then(processor.execute)
-      .catch(err => {
-        Log.e(err)
-      })
-  })
+          )
+        })
+        .then(() => playlist.songs.map(song => song.findTargetAudio()))
+        .then(_.filter)
+        .map(audio => getWalkmanPlaylistAudioPath(mountpoint, playlist, audio))
+        .then(audiopaths => {
+          return getWalkmanPlaylistPath(mountpoint, playlist)
+            .then(playlistpath => {
+              return fse
+                .ensureDir(playlistpath)
+                .then(() => fse.readdir(playlistpath))
+                .map(file => path.resolve(playlistpath, file))
+            })
+            .map(audiopath => audiopath.normalize()) // NOTE: Very important for mac fs
+            .map(audiopath => {
+              if (!audiopaths.includes(audiopath)) {
+                Log.i(`Removing ${path.basename(audiopath)}`)
+                return processor.add(() => fse.remove(audiopath))
+              }
+            })
+        })
+        .then(processor.execute)
+        .catch(err => {
+          Log.e(err)
+        })
+    })
+    .return(mountpoint)
 }
 
 function addOrRemoveAlbums(mountpoint) {

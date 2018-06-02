@@ -11,88 +11,44 @@ import ora from '../../utils/ora++'
 import progress from 'progress-stream'
 
 export default function() {
-  const spinner = ora('Start pipe audios')
-  return prepare(spinner)
-    .then(run)
-    .then(() => {
-      spinner.succeed()
-    })
-    .catch(err => {
-      spinner.failed('Failed to download songs')
-      return Log.e('Uncaught Error when download song', err)
-    })
+  return prepare().catch(err => {
+    return Log.e('Uncaught Error when download song', err)
+  })
 }
 
-function prepare(spinner) {
+function prepare() {
   const processor = Processor.create()
-  return findUserSongs()
-    .map(song => {
-      return song.findTargetAudio().then(audio => {
-        if (!audio) return enqueueJob(processor, spinner, song)
-      })
-    })
-    .return(processor)
-}
-
-function findUserSongs() {
-  return User.current()
-    .then(user => {
-      return Promise.join(
-        user.getPlaylists({
-          include: [
-            {
-              model: Song,
-              as: 'songs',
-              include: [
-                {
-                  model: Artist,
-                  as: 'artists'
-                },
-                {
-                  model: Local,
-                  as: 'audios'
-                }
-              ]
-            }
-          ]
-        }),
-        user.getAlbums({
-          include: [
-            {
-              model: Song,
-              as: 'songs',
-              include: [
-                {
-                  model: Artist,
-                  as: 'artists'
-                },
-                {
-                  model: Local,
-                  as: 'audios'
-                }
-              ]
-            }
-          ]
-        }),
-        (playlists, albums) => {
-          return [
-            ..._.flatten(playlists.map(playlist => playlist.songs)),
-            ..._.flatten(albums.map(album => album.songs))
-          ]
-        }
-      )
-    })
+  const spinner = ora()
+  processor.on('finish', progress => {
+    spinner.succeed('Download songs, done.')
+  })
+  processor.on('error', err => {
+    spinner.error('Download failed, check error log')
+  })
+  return Promise.join(
+    User.getPlaylists(),
+    User.getAlbums(),
+    (playlists, albums) => {
+      return [
+        ..._.flatten(playlists.map(playlist => playlist.songs)),
+        ..._.flatten(albums.map(album => album.songs))
+      ]
+    }
+  )
     .then(songs => _.uniqBy(songs, 'id'))
+    .filter(song => {
+      return song.findTargetAudio().then(audio => !audio)
+    })
+    .map(song => {
+      return enqueue(processor, song, spinner)
+    })
+    .then(processor.execute)
 }
 
-function run(processor) {
-  return processor.run()
-}
-
-function enqueueJob(processor, spinner, song) {
+function enqueue(processor, song, spinner) {
   return processor.add(() => {
     return getLocalAudioPath(song).then(audiopath => {
-      return download(spinner, song)
+      return download(song, spinner)
         .then(() => {
           return processor
             .post(() => {
@@ -128,7 +84,7 @@ function addAudio(song, audiopath) {
   })
 }
 
-function download(spinner, song) {
+function download(song, spinner) {
   return getLocalAudioPath(song).then(audiopath => {
     const tmppath = `${audiopath}.tmp`
     return getRemoteAudioFile(song)

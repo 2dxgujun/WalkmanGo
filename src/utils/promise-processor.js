@@ -28,30 +28,28 @@ export default class Processor extends Queue {
 
   add(generator) {
     super
-      .add(() => {
-        return Promise.try(() => {
-          this.emit('progress', {
-            length: this.length,
-            index: this.index++
-          })
-          return generator()
-        })
-      })
+      .add(Promise.try(generator))
       .then(() => {
+        this.emit('progress', {
+          max: this.max,
+          progress: ++this.progress
+        })
         if (this.pendingPromises === 0) {
           this.resolve()
+          this.emit('finish', this.progress)
         }
       })
       .catch(err => {
         this.reject(err)
+        this.emit('error', err)
       })
     return Promise.resolve()
   }
 
   run() {
     this.maxPendingPromises = this.concurrency
-    this.length = this.queue.length
-    this.index = 0
+    this.max = this.queue.length
+    this.progress = 0
     this.pending = new Promise((resolve, reject) => {
       this.resolve = resolve
       this.reject = reject
@@ -59,6 +57,7 @@ export default class Processor extends Queue {
     while (this._dequeue()) {}
     if (this.pendingPromises === 0) {
       this.resolve()
+      this.emit('finish', 0)
     }
     return this.pending
   }

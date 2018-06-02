@@ -29,6 +29,7 @@ import {
   getWalkmanPlaylistURLPath,
   getWalkmanPlaylistAudioPath,
   getWalkmanAlbumPath,
+  getWalkmanAlbumsPath,
   getWalkmanAlbumAudioPath
 } from '../walkman-path'
 
@@ -37,36 +38,31 @@ const mp3durationAsync = Promise.promisify(mp3duration)
 
 export default function() {
   Log.d('Start transfer')
-  return (
-    findMountpoints()
-      .then(mountpoints => {
-        if (mountpoints && mountpoints.length) return mountpoints
-        return inquirer
-          .prompt([
-            {
-              type: 'confirm',
-              name: 'charge',
-              message: 'Connect usb for charge?',
-              default: 'false'
-            }
-          ])
-          .then(ans => {
-            if (ans.charge) return null
-            // spinner.warn('No mountpoints, please turn on USB mass storage')
-            return findMountpointsAwait(15000).catch(
-              Promise.TimeoutError,
-              () => {
-                // spinner.fail('No mountpoints since timeout after 15 seconds')
-              }
-            )
+  return findMountpoints()
+    .then(mountpoints => {
+      if (mountpoints && mountpoints.length) return mountpoints
+      return inquirer
+        .prompt([
+          {
+            type: 'confirm',
+            name: 'charge',
+            message: 'Connect usb for charge?',
+            default: 'false'
+          }
+        ])
+        .then(ans => {
+          if (ans.charge) return null
+          // spinner.warn('No mountpoints, please turn on USB mass storage')
+          return findMountpointsAwait(15000).catch(Promise.TimeoutError, () => {
+            // spinner.fail('No mountpoints since timeout after 15 seconds')
           })
-      })
-      .then(handleSyncPlaylists)
-      //.then(handleSyncAlbums)
-      .catch(err => {
-        Log.e('Uncaught Error when transfer songs', err)
-      })
-  )
+        })
+    })
+    .then(handleSyncPlaylists)
+    .then(handleSyncAlbums)
+    .catch(err => {
+      Log.e('Uncaught Error when transfer songs', err)
+    })
 }
 
 function handleSyncPlaylists(mountpoints) {
@@ -137,16 +133,20 @@ function addOrRemovePlaylists(processor, mountpoint) {
         .map(playlistpath => {
           if (!playlistpaths.includes(playlistpath)) {
             return getWalkmanMusicPath(mountpoint).then(musicpath => {
-              return Promise.join(
-                processor.add(() => fse.remove(playlistpath)),
-                processor.add(() =>
-                  // prettier-ignore
-                  fse.remove(path.resolve(musicpath, `${path.basename(playlistpath)}.m3u`))
+              return processor.add(() => {
+                Log.i(`Removing playlist ${path.basename(playlistpath)}`)
+                return Promise.join(
+                  fse.remove(playlistpath),
+                  fse.remove(
+                    // prettier-ignore
+                    path.resolve(musicpath,`${path.basename(playlistpath)}.m3u`)
+                  )
                 )
-              )
+              })
             })
           } else {
             return processor.add(() => {
+              Log.i(`Creating playlist ${path.basename(playlistpath)}`)
               return createPlaylist(mountpoint, playlistpath)
             })
           }
@@ -168,12 +168,13 @@ function addOrRemovePlaylistSongs(processor, mountpoint, playlist) {
       return getWalkmanPlaylistAudioPath(mountpoint, playlist, audio).then(
         audiopath => {
           return processor.add(() => {
+            Log.i(`Adding ${path.basename(audiopath)}`)
             return fse.ensureDir(path.dirname(audiopath)).then(() => {
               const tmppath = `${audiopath}.tmp`
               return fse
                 .copy(audio.path, tmppath)
                 .then(() => {
-                  return stripTag(tmppath)
+                  return stripTag(tmppath, audio)
                 })
                 .then(() => {
                   return fse.rename(tmppath, audiopath)
@@ -197,6 +198,7 @@ function addOrRemovePlaylistSongs(processor, mountpoint, playlist) {
         .map(audiopath => audiopath.normalize()) // NOTE: Very important for mac fs
         .map(audiopath => {
           if (!audiopaths.includes(audiopath)) {
+            Log.i(`Removing ${path.basename(audiopath)}`)
             return processor.add(() => fse.remove(audiopath))
           }
         })
@@ -212,37 +214,37 @@ function addOrRemoveAlbums(processor, mountpoint) {
         })
       })
         .map(album => {
-          return Promise.map(album.songs, song => song.findTargetAudio()).map(
-            audio => {
-              return getWalkmanAlbumAudioPath(mountpoint, album, audio).then(
-                audiopath => {
-                  return fse.ensureDir(path.dirname(audiopath)).then(() => {
+          return processor.add(() => {
+            return getWalkmanAlbumPath(mountpoint, album)
+              .then(albumpath => {
+                Log.i(`Add ${path.basename(albumpath)}`)
+                return fse.ensureDir(albumpath)
+              })
+              .then(() => album.songs.map(song => song.findTargetAudio()))
+              .map(audio => {
+                return getWalkmanAlbumAudioPath(mountpoint, album, audio).then(
+                  audiopath => {
                     const tmppath = `${audiopath}.tmp`
                     return fse.copy(audio.path, tmppath).then(() => {
                       return fse.rename(tmppath, audiopath)
                     })
-                  })
-                }
-              )
-            }
-          )
+                  }
+                )
+              })
+          })
         })
         .return(albums)
     })
     .map(album => getWalkmanAlbumPath(mountpoint, album))
     .then(albumpaths => {
-      return getWalkmanMusicPath(mountpoint).then(musicpath =>
+      return getWalkmanAlbumsPath(mountpoint).then(albumspath =>
         fse
-          .readdir(musicpath)
-          .map(file => path.resolve(musicpath, file))
-          .filter(albumpath => {
-            return getWalkmanPlaylistsPath(mountpoint).then(
-              playlistspath => albumpath != playlistspath
-            )
-          })
+          .readdir(albumspath)
+          .map(file => path.resolve(albumspath, file))
           .map(albumpath => albumpath.normalize()) // NOTE: Very important
           .map(albumpath => {
             if (!albumpaths.includes(albumpath)) {
+              Log.i(`Removing ${path.basename(albumpath)}`)
               return processor.add(() => fse.remove(albumpath))
             }
           })
@@ -280,10 +282,11 @@ function createPlaylist(mountpoint, playlistpath) {
     })
 }
 
-function stripTag(audiopath) {
-  if (path.extname(audiopath) === '.flac') {
+function stripTag(audiopath, audio) {
+  const { bitrate } = audio.SongAudio
+  if (bitrate === 'flac') {
     return stripTag__FLAC(audiopath)
-  } else if (path.extname(audiopath) === '.mp3') {
+  } else if (bitrate === '128' || bitrate === '320') {
     return stripTag__MP3(audiopath)
   } else {
     throw new Error('Unknown audio format')

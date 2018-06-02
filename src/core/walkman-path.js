@@ -64,9 +64,15 @@ export function getWalkmanPlaylistAudioPath(mountpoint, playlist, audio) {
   })
 }
 
-export function getWalkmanAlbumPath(mountpoint, album) {
+export function getWalkmanAlbumsPath(mountpoint) {
   return getWalkmanMusicPath(mountpoint).then(musicPath => {
-    return path.resolve(musicPath, `${album.artist.name} - ${album.name}`)
+    return path.resolve(musicPath, 'ALBUMS')
+  })
+}
+
+export function getWalkmanAlbumPath(mountpoint, album) {
+  return getWalkmanAlbumsPath(mountpoint).then(albumsPath => {
+    return path.resolve(albumsPath, `${album.artist.name} - ${album.name}`)
   })
 }
 

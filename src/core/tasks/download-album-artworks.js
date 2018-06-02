@@ -22,6 +22,9 @@ export default function() {
   const spinner = ora()
   return prepare(spinner)
     .then(run)
+    .then(() => {
+      spinner.succeed()
+    })
     .catch(err => {
       return Log.e('Uncaught Error when download album artwork', err)
     })

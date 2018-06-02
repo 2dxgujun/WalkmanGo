@@ -3,12 +3,16 @@ import transfer from './transfer'
 import { schedule, unschedule } from './schedule'
 
 export default function() {
+  const { WALKMAN_GO_MOUNTPOINTS: mountpoints } = process.env
+  if (mountpoints) {
+    return unschedule().then(transfer)
+  }
   detect(
     (err, device) => {
       unschedule().then(transfer)
     },
     (err, device) => {
-      return schedule()
+      schedule()
     }
   )
 }

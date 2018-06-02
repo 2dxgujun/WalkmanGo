@@ -26,7 +26,7 @@ function addOrRemovePlaylists() {
   return qqmusic
     .getPlaylists(uin)
     .filter(playlist => {
-      return WALKMAN_GO_PLAYLISTS.includes(playlist.name)
+      return WALKMAN_GO_PLAYLISTS.split(',').includes(playlist.name)
     })
     .mapSeries((playlist, index, length) => {
       spinner.progress({
@@ -64,7 +64,7 @@ function addOrRemoveAlbums() {
     .getAlbums(uin)
     .filter(album => {
       // Filter albums for develop, not intent to use to production
-      return WALKMAN_GO_ALBUMS.includes(album.name)
+      return WALKMAN_GO_ALBUMS.split(',').includes(album.name)
     })
     .mapSeries((album, index, length) => {
       spinner.progress({

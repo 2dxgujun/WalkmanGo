@@ -40,6 +40,26 @@ class NoMountpointError extends Error {}
 
 export default function() {
   Log.d('Start transfer')
+  return ensureMountpoints()
+    .then(syncPlaylists)
+    .then(syncAlbums)
+    .catch(NoMountpointError, err => {
+      Log.e(err)
+    })
+    .catch(err => {
+      Log.e('Uncaught Error when transfer songs', err)
+    })
+}
+
+function ensureMountpoints() {
+  const { WALKMAN_GO_MOUNTPOINTS: mountpoints } = process.env
+  if (mountpoints && mountpoints.length) {
+    return Promise.resolve(mountpoints.split(','))
+      .map(mountpoint => {
+        return fse.ensureDir(mountpoint).return(mountpoint)
+      })
+      .map(mountpoint => ({ path: mountpoint }))
+  }
   const spinner = ora(
     'Starting transfer, please turn on USB mass storage'
   ).start()
@@ -63,14 +83,7 @@ export default function() {
           })
         })
     })
-    .then(syncPlaylists)
-    .then(syncAlbums)
-    .catch(NoMountpointError, err => {
-      Log.e(err)
-    })
-    .catch(err => {
-      Log.e('Uncaught Error when transfer songs', err)
-    })
+    .then(spinner.succeed)
 }
 
 function syncPlaylists(mountpoints) {
@@ -116,7 +129,7 @@ function syncAlbums(mountpoints) {
     })
 }
 
-function addOrRemovePlaylists(mountpoint, spinner) {
+function addOrRemovePlaylists(mountpoint) {
   const processor = Processor.create()
   const spinner = ora('Syncing playlists')
   processor.on('progress', ({ max, progress }) => {

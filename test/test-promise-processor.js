@@ -36,8 +36,8 @@ processor.add(() => {
   })
 })
 
-processor.on('progress', update => {
-  console.log(`${update.index} / ${update.length}`)
+processor.on('progress', ({ max, progress }) => {
+  console.log(`${progress} / ${max}`)
 })
 
 setTimeout(() => {

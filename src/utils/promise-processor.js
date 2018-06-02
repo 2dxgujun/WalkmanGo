@@ -28,7 +28,7 @@ export default class Processor extends Queue {
 
   add(generator) {
     super
-      .add(Promise.try(generator))
+      .add(() => Promise.try(generator))
       .then(() => {
         this.emit('progress', {
           max: this.max,

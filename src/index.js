@@ -45,12 +45,14 @@ function configureLogger(workdir) {
 function parse(data) {
   const cfg = ini.parse(data)
   const { workdir, bitrate } = cfg.general
-  const { uin, playlists, albums } = cfg.personal
+  const { uin, playlists } = cfg.personal
+  const { albums, mountpoints } = cfg.debug
   process.env.WALKMAN_GO_WORKDIR = untildify(workdir)
   process.env.WALKMAN_GO_BITRATE = bitrate
   process.env.WALKMAN_GO_UIN = uin
   process.env.WALKMAN_GO_PLAYLISTS = playlists
   process.env.WALKMAN_GO_ALBUMS = albums
+  process.env.WALKMAN_GO_MOUNTPOINTS = mountpoints
 }
 
 program
@@ -65,7 +67,7 @@ fse
   .readFile(program.config || './walkman-go.ini', 'utf-8')
   .then(parse)
   .then(setup)
-  //.then(schedule)
+  .then(schedule)
   .then(initDetection)
   .catch(err => {
     console.log(err.message)

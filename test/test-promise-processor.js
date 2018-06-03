@@ -1,6 +1,6 @@
 var Processor = require('../src/utils/promise-processor').default
 
-var processor = new Processor(1)
+var processor = new Processor(2)
 
 processor.add(() => {
   return new Promise((resolve, reject) => {
@@ -15,7 +15,7 @@ processor.add(() => {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       console.log(4)
-      resolve()
+      reject('fuck')
     }, 3000)
   })
 })
@@ -38,6 +38,10 @@ processor.add(() => {
 
 processor.on('progress', ({ max, progress }) => {
   console.log(`${progress} / ${max}`)
+})
+
+processor.on('error', err => {
+  console.error('on error: ' + err)
 })
 
 setTimeout(() => {

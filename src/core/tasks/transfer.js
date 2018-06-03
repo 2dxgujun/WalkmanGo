@@ -40,14 +40,26 @@ class NoMountpointError extends Error {}
 
 export default function() {
   Log.d('Start transfer')
-  return ensureMountpoints()
-    .then(mountpoints => {
-      return transferPlaylists(mountpoints).then(() => {
-        return transferAlbums(mountpoints)
-      })
-    })
-    .catch(err => {
-      Log.e('Uncaught Error when transfer songs', err)
+  return inquirer
+    .prompt([
+      {
+        type: 'confirm',
+        name: 'charge',
+        message: 'Connect usb for charge?',
+        default: 'false'
+      }
+    ])
+    .then(ans => {
+      if (ans.charge) return
+      return ensureMountpoints()
+        .then(mountpoints => {
+          return transferPlaylists(mountpoints).then(() => {
+            return transferAlbums(mountpoints)
+          })
+        })
+        .catch(err => {
+          Log.e('Uncaught Error when transfer songs', err)
+        })
     })
 }
 
@@ -289,12 +301,9 @@ function addOrRemoveAlbums(mountpoint) {
         .map(album => {
           return processor.add(() => {
             return getWalkmanAlbumPath(mountpoint, album)
-              .then(albumpath => {
-                Log.i(`Add ${path.basename(albumpath)}`)
-                return fse.ensureDir(albumpath)
-              })
+              .then(fse.ensureDir)
               .then(() => album.songs.map(song => song.findTargetAudio()))
-              .map(audio => {
+              .mapSeries(audio => {
                 return getWalkmanAlbumAudioPath(mountpoint, album, audio).then(
                   audiopath => {
                     const tmppath = `${audiopath}.tmp`
@@ -317,7 +326,6 @@ function addOrRemoveAlbums(mountpoint) {
           .map(albumpath => albumpath.normalize()) // NOTE: Very important
           .map(albumpath => {
             if (!albumpaths.includes(albumpath)) {
-              Log.i(`Removing ${path.basename(albumpath)}`)
               return processor.add(() => fse.remove(albumpath))
             }
           })

@@ -10,19 +10,7 @@ export default function() {
   }
   detect(
     (err, device) => {
-      return inquirer
-        .prompt([
-          {
-            type: 'confirm',
-            name: 'charge',
-            message: 'Connect usb for charge?',
-            default: 'false'
-          }
-        ])
-        .then(ans => {
-          if (ans.charge) return
-          unschedule().then(transfer)
-        })
+      unschedule().then(transfer)
     },
     (err, device) => {
       schedule()

@@ -21,6 +21,7 @@ export default class Processor extends Queue {
     this.post = this.post.bind(this)
     this.blockingQueue = new Queue(1 /*max concurrent*/, Infinity)
     this.pending = null
+    this.error = null
   }
 
   post(generator) {
@@ -30,19 +31,27 @@ export default class Processor extends Queue {
   add(generator) {
     super
       .add(() => Promise.try(generator))
-      .then(() => {
-        this.emit('progress', {
-          max: this.max,
-          progress: ++this.progress
-        })
-        if (this.pendingPromises === 0) {
-          this.resolve()
-          this.emit('finish', this.progress)
-        }
-      })
       .catch(err => {
-        this.reject(err)
-        this.emit('error', err)
+        // stop further dequeue
+        this.maxPendingPromises = 0
+        // record the first error
+        if (!this.error) this.error = err
+      })
+      .then(() => {
+        if (this.pendingPromises === 0) {
+          if (this.error) {
+            this.reject(this.error)
+            this.emit('error', this.error)
+          } else {
+            this.resolve()
+            this.emit('finish', this.progress)
+          }
+        } else {
+          this.emit('progress', {
+            max: this.max,
+            progress: ++this.progress
+          })
+        }
       })
     return Promise.resolve()
   }

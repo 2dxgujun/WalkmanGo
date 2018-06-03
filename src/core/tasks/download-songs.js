@@ -6,6 +6,7 @@ import fse from 'fs-extra'
 import meter from 'stream-meter'
 import { Log } from '../../utils/logger'
 import Processor from '../../utils/promise-processor'
+import sanitize from 'sanitize-filename'
 import _ from 'lodash'
 import ora from '../../utils/ora++'
 import progress from 'progress-stream'
@@ -159,9 +160,9 @@ function getLocalAudioFile(song) {
     if (song.artists && song.artists.length > 0) {
       artistName = `${song.artists[0].name}`
     }
-    let audiofile = `${artistName} - ${song.name}${extname}`
-    audiofile = audiofile.replace('/', ',')
-    return audiofile
+    return sanitize(`${artistName} - ${song.name}${extname}`, {
+      replacement: '_'
+    })
   })
 }
 

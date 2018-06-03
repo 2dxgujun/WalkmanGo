@@ -2,6 +2,7 @@ import drivelist from 'drivelist'
 import inquirer from 'inquirer'
 import fse from 'fs-extra'
 import path from 'path'
+import sanitize from 'sanitize-filename'
 import { Log } from '../utils/logger'
 
 Promise.promisifyAll(drivelist)
@@ -72,7 +73,12 @@ export function getWalkmanAlbumsPath(mountpoint) {
 
 export function getWalkmanAlbumPath(mountpoint, album) {
   return getWalkmanAlbumsPath(mountpoint).then(albumsPath => {
-    return path.resolve(albumsPath, `${album.artist.name} - ${album.name}`)
+    return path.resolve(
+      albumsPath,
+      sanitize(`${album.artist.name} - ${album.name}`, {
+        replacement: '_'
+      })
+    )
   })
 }
 

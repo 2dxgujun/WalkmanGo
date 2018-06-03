@@ -38,6 +38,7 @@
     "ora": "^2.1.0",
     "progress-stream": "^2.0.0",
     "promise-queue": "^2.2.5",
+    "sanitize-filename": "^1.6.1",
     "sequelize": "^4.37.10",
     "sharp": "^0.20.1",
     "sqlite3": "^4.0.0",

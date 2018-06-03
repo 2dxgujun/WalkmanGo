@@ -185,6 +185,7 @@ export function getAudioStream(filename) {
 export function getAlbumArtworkStream(albumid) {
   const id = albumid.toString()
   const sid = parseInt(id.substr(id.length - 2))
+  // http://124.14.5.142/musicoc.music.tc.qq.com/M800103tUJxP0RedYk.mp3?vkey=418977F9B0506E50805F76D942AA7C986754DEE145F2339ED883B64A452B7E9C088A8156D2B2C40C3B2D6B361C6F4263E20B1577610F3CB4&guid=123&fromtag=64
   return fetch(
     `https://y.gtimg.cn/music/photo/album_500/${sid}/500_albumpic_${id}_0.jpg`
   ).then(res => {

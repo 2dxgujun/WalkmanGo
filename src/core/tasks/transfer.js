@@ -292,30 +292,29 @@ function addOrRemoveAlbums(mountpoint) {
     spinner.error('Syncing albums failed, check error log')
   })
   return User.getAlbums()
-    .then(albums => {
-      return Promise.filter(albums, album => {
-        return getWalkmanAlbumPath(mountpoint, album).then(albumpath => {
-          return fse.pathExists(albumpath).then(exists => !exists)
+    .map(album => {
+      return processor
+        .add(() => {
+          return getWalkmanAlbumPath(mountpoint, album)
+            .then(fse.ensureDir)
+            .then(() => album.songs.map(song => song.findTargetAudio()))
+            .filter(audio => {
+              return getWalkmanAlbumAudioPath(mountpoint, album, audio).then(
+                audiopath => fse.pathExists(audiopath).then(exists => !exists)
+              )
+            })
+            .mapSeries(audio => {
+              return getWalkmanAlbumAudioPath(mountpoint, album, audio).then(
+                audiopath => {
+                  const tmppath = `${audiopath}.tmp`
+                  return fse.copy(audio.path, tmppath).then(() => {
+                    return fse.rename(tmppath, audiopath)
+                  })
+                }
+              )
+            })
         })
-      })
-        .map(album => {
-          return processor.add(() => {
-            return getWalkmanAlbumPath(mountpoint, album)
-              .then(fse.ensureDir)
-              .then(() => album.songs.map(song => song.findTargetAudio()))
-              .mapSeries(audio => {
-                return getWalkmanAlbumAudioPath(mountpoint, album, audio).then(
-                  audiopath => {
-                    const tmppath = `${audiopath}.tmp`
-                    return fse.copy(audio.path, tmppath).then(() => {
-                      return fse.rename(tmppath, audiopath)
-                    })
-                  }
-                )
-              })
-          })
-        })
-        .return(albums)
+        .return(album)
     })
     .map(album => getWalkmanAlbumPath(mountpoint, album))
     .then(albumpaths => {

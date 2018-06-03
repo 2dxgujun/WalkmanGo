@@ -87,8 +87,11 @@ function addAudio(song, audiopath) {
 function download(song, spinner) {
   return getLocalAudioPath(song).then(audiopath => {
     const tmppath = `${audiopath}.tmp`
-    return getRemoteAudioFile(song)
-      .then(qqmusic.getAudioStream)
+    return song
+      .getTargetBitrate()
+      .then(bitrate => {
+        return qqmusic.getAudioStream(song.mid, bitrate)
+      })
       .then(source => {
         return new Promise((resolve, reject) => {
           getRemoteAudioSize(song)
@@ -171,19 +174,6 @@ function getRemoteAudioSize(song) {
         return song.size320
       case '128':
         return song.size128
-    }
-  })
-}
-
-function getRemoteAudioFile(song) {
-  return song.getTargetBitrate().then(bitrate => {
-    switch (bitrate) {
-      case 'flac':
-        return `F000${song.mid}.flac`
-      case '320':
-        return `M800${song.mid}.mp3`
-      case '128':
-        return `M500${song.mid}.mp3`
     }
   })
 }

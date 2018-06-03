@@ -1,6 +1,7 @@
 import fetch from 'node-fetch'
 import HttpError from '../http-error'
 import ApiError from '../api-error'
+import { Log } from '../../utils/logger'
 
 export function getPlaylists(uin) {
   return fetch(
@@ -158,9 +159,19 @@ export function getAlbumInfo(albummid) {
     })
 }
 
-export function getAudioStream(filename) {
-  const guid = Math.floor(Math.random() * 1000000000)
+function getRemoteAudioFile(songmid, bitrate) {
+  switch (bitrate) {
+    case 'flac':
+      return `F000${songmid}.flac`
+    case '320':
+      return `M800${songmid}.mp3`
+    case '128':
+      return `M500${songmid}.mp3`
+  }
+}
 
+export function getAudioStream(songmid, bitrate) {
+  const guid = Math.floor(Math.random() * 1000000000)
   return fetch(
     `https://c.y.qq.com/base/fcgi-bin/fcg_musicexpress.fcg?guid=${guid}&format=json`
   )
@@ -171,13 +182,18 @@ export function getAudioStream(filename) {
       })
     })
     .then(result => {
-      return fetch(
-        `${result.sip[0]}${filename}?vkey=${result.key}&guid=${guid}&fromtag=60`
-      ).then(res => {
-        if (res.ok) return res.body
-        return res.text().then(text => {
-          throw new HttpError(res.status, text)
-        })
+      // prettier-ignore
+      if (songmid[0] === '1') {
+        // 101JlzUt2zzxS9
+        return fetch(`http://124.14.5.142/musicoc.music.tc.qq.com/${getRemoteAudioFile(songmid,bitrate)}?vkey=${result.key}&guid=${guid}&fromtag=64`)
+      } else {
+        return fetch(`${result.sip[0]}${getRemoteAudioFile(songmid, bitrate)}?vkey=${result.key}&guid=${guid}&fromtag=60`)
+      }
+    })
+    .then(res => {
+      if (res.ok) return res.body
+      return res.text().then(text => {
+        throw new HttpError(res.status, text)
       })
     })
 }
@@ -185,7 +201,6 @@ export function getAudioStream(filename) {
 export function getAlbumArtworkStream(albumid) {
   const id = albumid.toString()
   const sid = parseInt(id.substr(id.length - 2))
-  // http://124.14.5.142/musicoc.music.tc.qq.com/M800103tUJxP0RedYk.mp3?vkey=418977F9B0506E50805F76D942AA7C986754DEE145F2339ED883B64A452B7E9C088A8156D2B2C40C3B2D6B361C6F4263E20B1577610F3CB4&guid=123&fromtag=64
   return fetch(
     `https://y.gtimg.cn/music/photo/album_500/${sid}/500_albumpic_${id}_0.jpg`
   ).then(res => {

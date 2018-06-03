@@ -52,8 +52,9 @@ export default function() {
 }
 
 function ensureMountpoints() {
-  const { WALKMAN_GO_MOUNTPOINTS: mountpoints } = process.env
-  if (mountpoints && mountpoints.length) {
+  if (process.env.WALKMAN_GO_MOUNTPOINTS) {
+    // Intent to use in debug mode
+    const { WALKMAN_GO_MOUNTPOINTS: mountpoints } = process.env
     return Promise.resolve(mountpoints.split(','))
       .map(mountpoint => {
         return fse.ensureDir(mountpoint).return(mountpoint)

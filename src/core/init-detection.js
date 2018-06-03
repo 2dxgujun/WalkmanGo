@@ -4,8 +4,8 @@ import transfer from './transfer'
 import { schedule, unschedule } from './schedule'
 
 export default function() {
-  const { WALKMAN_GO_MOUNTPOINTS: mountpoints } = process.env
-  if (mountpoints) {
+  if (process.env.WALKMAN_GO_MOUNTPOINTS) {
+    // Intent to use in debug mode
     return unschedule().then(transfer)
   }
   detect(

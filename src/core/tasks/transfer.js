@@ -375,7 +375,7 @@ function stripTag(audiopath, audio) {
 }
 
 function stripTag__MP3(audiopath) {
-  return ID3v2.writeAsync(
+  return ID3v2.updateAsync(
     {
       album: 'Unknown'
     },

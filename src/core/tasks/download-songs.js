@@ -49,11 +49,16 @@ function prepare() {
 function enqueue(processor, song, spinner) {
   return processor.add(() => {
     return getLocalAudioPath(song).then(audiopath => {
-      return download(song, spinner)
+      const tmppath = `${song.mid}.tmp`
+      return download(song, tmppath, spinner)
         .then(() => {
           return processor
             .post(() => {
-              return addAudio(song, audiopath)
+              return getLocalAudioPathNoClash(song).then(audiopath => {
+                return fse
+                  .rename(tmppath, audiopath)
+                  .then(() => addAudio(song, audiopath))
+              })
             })
             .catch(err => {
               Log.e(`Add audio failed: ${audiopath}`, err)
@@ -85,47 +90,36 @@ function addAudio(song, audiopath) {
   })
 }
 
-function download(song, spinner) {
-  return getLocalAudioPath(song).then(audiopath => {
-    const tmppath = `${audiopath}.tmp`
-    return song
-      .getTargetBitrate()
-      .then(bitrate => {
-        return qqmusic.getAudioStream(song.mid, bitrate)
-      })
-      .then(source => {
-        return new Promise((resolve, reject) => {
-          getRemoteAudioSize(song)
-            .then(size => {
-              const m = meter()
-              const p = progress({ length: size })
-              const stream = source
-                .pipe(m)
-                .pipe(p)
-                .pipe(fse.createWriteStream(tmppath))
-              p.on('progress', progress => {
-                getLocalAudioFile(song).then(audiofile => {
-                  spinner.piping({ name: audiofile, progress })
-                })
-              })
-              source.on('error', reject)
-              stream.on('error', reject)
-              stream.on('finish', () => {
-                resolve(m.bytes)
+function download(song, audiopath, spinner) {
+  return song
+    .getTargetBitrate()
+    .then(bitrate => {
+      return qqmusic.getAudioStream(song.mid, bitrate)
+    })
+    .then(source => {
+      return new Promise((resolve, reject) => {
+        getRemoteAudioSize(song)
+          .then(size => {
+            const m = meter()
+            const p = progress({ length: size })
+            const stream = source
+              .pipe(m)
+              .pipe(p)
+              .pipe(fse.createWriteStream(audiopath))
+            p.on('progress', progress => {
+              getLocalAudioFile(song).then(audiofile => {
+                spinner.piping({ name: audiofile, progress })
               })
             })
-            .catch(reject)
-        })
+            source.on('error', reject)
+            stream.on('error', reject)
+            stream.on('finish', () => {
+              resolve(m.bytes)
+            })
+          })
+          .catch(reject)
       })
-      .then(bytes => {
-        return getRemoteAudioSize(song).then(size => {
-          if (size != bytes) {
-            throw new Error('Not match target audio size')
-          }
-          return fse.rename(tmppath, audiopath)
-        })
-      })
-  })
+    })
 }
 
 function getMimeType(audiopath) {
@@ -139,20 +133,29 @@ function getMimeType(audiopath) {
   }
 }
 
-function getLocalAudioPath(song) {
+function getLocalAudioPathNoClash(song, number = 0) {
+  return getLocalAudioPath(song, number).then(audiopath => {
+    return fse.pathExists(audiopath).then(exists => {
+      if (exists) return getLocalAudioPathNoClash(song, ++number)
+      return audiopath
+    })
+  })
+}
+
+function getLocalAudioPath(song, number = 0) {
   const { WALKMAN_GO_WORKDIR: workdir } = process.env
   return song.getTargetBitrate().then(bitrate => {
     const audiodir = path.resolve(workdir, 'music', bitrate)
     return fse
       .ensureDir(audiodir)
-      .then(() => getLocalAudioFile(song))
+      .then(() => getLocalAudioFile(song, number))
       .then(audiofile => {
         return path.resolve(audiodir, audiofile)
       })
   })
 }
 
-function getLocalAudioFile(song) {
+function getLocalAudioFile(song, number = 0) {
   return song.getTargetBitrate().then(bitrate => {
     let extname = '.mp3'
     if (bitrate === 'flac') extname = '.flac'
@@ -160,7 +163,11 @@ function getLocalAudioFile(song) {
     if (song.artists && song.artists.length > 0) {
       artistName = `${song.artists[0].name}`
     }
-    return sanitize(`${artistName} - ${song.name}${extname}`, {
+    let numbername = ''
+    if (number) {
+      numbername = ` (${number})`
+    }
+    return sanitize(`${artistName} - ${song.name}${numbername}${extname}`, {
       replacement: '_'
     })
   })

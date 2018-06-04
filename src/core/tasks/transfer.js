@@ -297,7 +297,12 @@ function addOrRemoveAlbums(mountpoint) {
         .add(() => {
           return getWalkmanAlbumPath(mountpoint, album)
             .then(fse.ensureDir)
-            .then(() => album.songs.map(song => song.findTargetAudio()))
+            .then(() => {
+              return Promise.all(album.songs).map(song => {
+                return song.findTargetAudio()
+              })
+            })
+            .then(_.filter)
             .filter(audio => {
               return getWalkmanAlbumAudioPath(mountpoint, album, audio).then(
                 audiopath => fse.pathExists(audiopath).then(exists => !exists)

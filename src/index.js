@@ -52,8 +52,12 @@ function parse(data) {
   process.env.WALKMAN_GO_PLAYLISTS = playlists
   if (cfg.debug) {
     const { albums, mountpoints } = cfg.debug
-    process.env.WALKMAN_GO_ALBUMS = albums
-    process.env.WALKMAN_GO_MOUNTPOINTS = mountpoints.map(untildify)
+    if (albums) {
+      process.env.WALKMAN_GO_ALBUMS = albums
+    }
+    if (mountpoints) {
+      process.env.WALKMAN_GO_MOUNTPOINTS = mountpoints.map(untildify)
+    }
   }
 }
 
